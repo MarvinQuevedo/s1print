@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import ServiceManagement
+import SwiftUI
 
 /// Menu-bar app that publishes the S1 as a driverless (IPP Everywhere / AirPrint)
 /// printer on this Mac. It runs Apple's own `ippeveprinter`, which hands every
@@ -12,8 +13,13 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var server: Process?
     private var stopping = false
+    private let printerItem = NSMenuItem(title: "Printer: checking…", action: nil, keyEquivalent: "")
     private let stateItem = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
+    private let queueItem = NSMenuItem(title: "Installed in macOS Printers", action: #selector(toggleQueue), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
+    private var queueBusy = false
+    private var lastStatusCheck = Date.distantPast
+    private var statusCheckRunning = false
 
     static func run() -> Never {
         let app = NSApplication.shared
@@ -29,12 +35,16 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "printer", accessibilityDescription: "S1")
         let menu = NSMenu()
         menu.delegate = self
+        printerItem.isEnabled = false
         stateItem.isEnabled = false
+        menu.addItem(printerItem)
         menu.addItem(stateItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Print Test Page", action: #selector(testPage), keyEquivalent: "t").target = self
-        menu.addItem(withTitle: "Add to macOS Printers", action: #selector(addQueue), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Open Printer Web Page", action: #selector(openWeb), keyEquivalent: "").target = self
+        queueItem.target = self
+        queueItem.toolTip = "Adds or removes the “S1 Bluetooth” printer in macOS"
+        menu.addItem(queueItem)
+        menu.addItem(withTitle: "Open Printers & Scanners…", action: #selector(openPrinterSettings), keyEquivalent: "").target = self
         loginItem.target = self
         menu.addItem(loginItem)
         menu.addItem(.separator())
@@ -42,14 +52,56 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: "Quit S1Print", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
         startServer()
-        if !queueExists() { addQueue() }
+        // First run: install the queue so the printer just shows up in print dialogs.
+        if !UserDefaults.standard.bool(forKey: "queueOffered") {
+            UserDefaults.standard.set(true, forKey: "queueOffered")
+            if !queueExists() { setQueue(installed: true, delay: 2) }
+        }
     }
 
     func menuWillOpen(_ menu: NSMenu) {
         if #available(macOS 13.0, *) { loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off }
         stateItem.title = server?.isRunning == true
-            ? "Printer “\(Settings.load().serviceName)” is online"
-            : "The print server is not running"
+            ? "Print server: online"
+            : "Print server: not running"
+        if !queueBusy {
+            queueItem.state = queueExists() ? .on : .off
+            queueItem.title = "Installed in macOS Printers"
+        }
+        refreshPrinterStatus()
+    }
+
+    /// Asks the printer for its state through a child `s1print status`, at most every 30 s.
+    private func refreshPrinterStatus() {
+        guard !statusCheckRunning, Date().timeIntervalSince(lastStatusCheck) > 30 else { return }
+        statusCheckRunning = true
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
+        p.arguments = ["status"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = pipe
+        p.terminationHandler = { [weak self] proc in
+            let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            func field(_ key: String) -> String? {
+                text.split(separator: "\n").first { $0.hasPrefix(key + ":") }
+                    .map { $0.dropFirst(key.count + 1).trimmingCharacters(in: .whitespaces) }
+            }
+            let title: String
+            if proc.terminationStatus == 0 {
+                let name = field("printer")?.components(separatedBy: " (").first ?? "S1"
+                title = [name, field("battery").map { "battery \($0)" }, field("status")]
+                    .compactMap { $0 }.joined(separator: " · ")
+            } else {
+                title = "Printer: off or out of range"
+            }
+            DispatchQueue.main.async {
+                self?.printerItem.title = title
+                self?.lastStatusCheck = Date()
+                self?.statusCheckRunning = false
+            }
+        }
+        do { try p.run() } catch { statusCheckRunning = false }
     }
 
     // MARK: ippeveprinter
@@ -99,20 +151,69 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Menu actions
 
-    @objc private func addQueue() {
-        // Give the server a moment to start answering before CUPS asks for its attributes.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [self] in
-            let ok = run("/usr/sbin/lpadmin", ["-p", Bridge.queueName, "-E", "-v", printerURI, "-m", "everywhere",
-                                                "-D", Settings.load().serviceName, "-L", "Bluetooth"]) == 0
-            // CUPS would otherwise default to the smallest label and cut receipts to 30 mm.
-            if ok {
-                self.run("/usr/sbin/lpadmin", ["-p", Bridge.queueName, "-o", "PageSize=58x600mm.Borderless",
-                                               "-o", "media=\(MediaSize.all[0].name)"])
+    @objc private func toggleQueue() {
+        guard !queueBusy else { return }
+        if queueExists() {
+            let alert = NSAlert()
+            alert.messageText = "Remove “\(Settings.load().serviceName)” from macOS?"
+            alert.informativeText = "Apps will no longer list it in the print dialog. You can add it again from this menu at any time."
+            alert.addButton(withTitle: "Remove")
+            alert.addButton(withTitle: "Cancel")
+            NSApp.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            setQueue(installed: false)
+        } else {
+            setQueue(installed: true)
+        }
+    }
+
+    /// Adds or removes the CUPS queue, showing progress in the menu and a confirmation bubble.
+    private func setQueue(installed: Bool, delay: TimeInterval = 0) {
+        queueBusy = true
+        queueItem.title = installed ? "Adding to macOS Printers…" : "Removing from macOS Printers…"
+        let name = Settings.load().serviceName
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
+            var ok: Bool
+            if installed {
+                ok = run("/usr/sbin/lpadmin", ["-p", Bridge.queueName, "-E", "-v", printerURI, "-m", "everywhere",
+                                               "-D", name, "-L", "Bluetooth"]) == 0
+                // CUPS would otherwise default to the smallest label and cut receipts to 30 mm.
+                if ok {
+                    run("/usr/sbin/lpadmin", ["-p", Bridge.queueName, "-o", "PageSize=58x600mm.Borderless",
+                                              "-o", "media=\(MediaSize.all[0].name)"])
+                }
+            } else {
+                ok = run("/usr/sbin/lpadmin", ["-x", Bridge.queueName]) == 0
             }
+            let nowInstalled = queueExists()
             DispatchQueue.main.async {
-                self.stateItem.title = ok ? "Added as “\(Settings.load().serviceName)”" : "Could not add the printer"
+                self.queueBusy = false
+                self.queueItem.title = "Installed in macOS Printers"
+                self.queueItem.state = nowInstalled ? .on : .off
+                if ok {
+                    self.toast(installed ? "“\(name)” added to your printers" : "“\(name)” removed from your printers",
+                               symbol: installed ? "checkmark.circle.fill" : "minus.circle.fill")
+                } else {
+                    self.toast(installed ? "Could not add the printer" : "Could not remove the printer",
+                               symbol: "exclamationmark.triangle.fill")
+                }
             }
         }
+    }
+
+    /// A small bubble under the menu-bar icon that fades away by itself.
+    private func toast(_ message: String, symbol: String) {
+        guard let button = statusItem.button else { return }
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(rootView: ToastView(message: message, symbol: symbol))
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) { popover.performClose(nil) }
+    }
+
+    @objc private func openPrinterSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Print-Scanner-Settings.extension")!)
     }
 
     @objc private func testPage() {
@@ -121,14 +222,14 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         p.arguments = ["test"]
         p.terminationHandler = { proc in
             DispatchQueue.main.async {
-                self.stateItem.title = proc.terminationStatus == 0 ? "Test page sent" : "Test failed: is the printer on?"
+                if proc.terminationStatus == 0 {
+                    self.toast("Test page sent", symbol: "checkmark.circle.fill")
+                } else {
+                    self.toast("Test failed: is the printer on?", symbol: "exclamationmark.triangle.fill")
+                }
             }
         }
         try? p.run()
-    }
-
-    @objc private func openWeb() {
-        NSWorkspace.shared.open(URL(string: "http://localhost:\(Settings.load().ippPort)/")!)
     }
 
     @objc private func toggleLogin() {
@@ -142,13 +243,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func about() {
-        let credits = NSMutableAttributedString(string: "Open-source driver for the Luck Jingle S1 Bluetooth thermal printer.\n\nDeveloped by Marvin Quevedo\n")
-        let link = "github.com/MarvinQuevedo/s1print"
-        credits.append(NSAttributedString(string: link, attributes: [.link: URL(string: "https://\(link)")!]))
-        credits.append(NSAttributedString(string: "\n\nMIT License. Not affiliated with Luck Jingle."))
-        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        AboutWindow.show()
     }
 
     @objc private func quit() {
@@ -160,5 +255,18 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         stopping = true
         server?.terminate()
+    }
+}
+
+private struct ToastView: View {
+    let message: String
+    let symbol: String
+
+    var body: some View {
+        Label(message, systemImage: symbol)
+            .font(.system(size: 13, weight: .medium))
+            .symbolRenderingMode(.multicolor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
     }
 }

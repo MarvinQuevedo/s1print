@@ -8,7 +8,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/s1print "$APP/Contents/MacOS/s1print"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-[ -f Resources/printer-icon.png ] && cp Resources/printer-icon.png "$APP/Contents/Resources/"
+cp Resources/AppIcon.icns Resources/printer-icon.png "$APP/Contents/Resources/"
 # A stable signing identity keeps the Bluetooth permission across rebuilds:
 # macOS ties the permission to the code signature, and an ad-hoc signature
 # changes with every build, so macOS would ask again after each one.

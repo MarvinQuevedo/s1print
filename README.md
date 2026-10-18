@@ -25,6 +25,13 @@ inside the app, macOS applies the app's Bluetooth permission.
 
 ## Install
 
+Download `S1Print-<version>.zip` from [Releases](https://github.com/MarvinQuevedo/s1print/releases),
+unzip it and move **S1Print.app** to Applications. The build is signed but not
+notarized yet, so the first time macOS may refuse to open it: right-click the
+app → **Open** → **Open** (or System Settings → Privacy & Security → *Open Anyway*).
+
+From source:
+
 ```bash
 ./scripts/bundle.sh                 # builds build/S1Print.app
 cp -R build/S1Print.app /Applications/
@@ -35,7 +42,9 @@ open /Applications/S1Print.app
 2. Open S1Print and allow Bluetooth when macOS asks. `bundle.sh` signs with your
    first "Apple Development" identity (or `SIGN_IDENTITY`) so the permission is
    kept across rebuilds; an ad-hoc signature makes macOS ask again after each build.
-3. The queue **S1 Bluetooth** is added automatically. Use the menu-bar icon → *Print Test Page* to check it.
+3. The queue **S1 Bluetooth** is added on first launch. The menu-bar icon shows the
+   printer's battery and paper state, prints a test page, and adds or removes the
+   queue (*Installed in macOS Printers*).
 
 ## Paper sizes
 

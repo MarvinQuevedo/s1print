@@ -83,11 +83,14 @@ func ippeveConfig() -> String {
     lines.append("ATTR integer media-right-margin-supported 0")
     lines.append("ATTR integer media-top-margin-supported 0")
     lines.append("ATTR integer media-bottom-margin-supported 0")
-    lines.append("ATTR resolution pwg-raster-document-resolution-supported 203dpi")
-    lines.append("ATTR resolution printer-resolution-supported 203dpi")
-    lines.append("ATTR resolution printer-resolution-default 203dpi")
+    // Ask apps for twice the head resolution: small receipt text drawn at 203 dpi
+    // has 5-6 px glyphs whose thin strokes break when thresholded; at 406 dpi we
+    // scale down instead, which keeps strokes solid.
+    lines.append("ATTR resolution pwg-raster-document-resolution-supported 406dpi")
+    lines.append("ATTR resolution printer-resolution-supported 406dpi")
+    lines.append("ATTR resolution printer-resolution-default 406dpi")
     lines.append("ATTR keyword pwg-raster-document-type-supported \"black_1\",\"sgray_8\"")
-    lines.append("ATTR keyword urf-supported \"V1.4\",\"W8\",\"DM1\",\"RS203\",\"CP1\",\"IS1\",\"MT1-3-10-12\"")
+    lines.append("ATTR keyword urf-supported \"V1.4\",\"W8\",\"DM1\",\"RS406\",\"CP1\",\"IS1\",\"MT1-3-10-12\"")
     lines.append("ATTR keyword print-color-mode-supported \"monochrome\"")
     lines.append("ATTR keyword print-color-mode-default \"monochrome\"")
     lines.append("ATTR boolean color-supported false")

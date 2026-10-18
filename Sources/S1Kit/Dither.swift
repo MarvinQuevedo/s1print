@@ -28,8 +28,12 @@ public enum DitherMode: String, CaseIterable {
 }
 
 public enum Dither {
+    /// The default threshold sits above mid-gray so the antialiased edges of thin
+    /// strokes count as ink: receipt text prints bolder and does not break up.
+    public static let defaultThreshold = 150
+
     /// Converts a grayscale page (already `width` pixels wide) to a packed bitmap.
-    public static func pack(_ page: GrayPage, mode: DitherMode = .auto, threshold: Int = 128) -> BitImage {
+    public static func pack(_ page: GrayPage, mode: DitherMode = .auto, threshold: Int = defaultThreshold) -> BitImage {
         let resolved = mode == .auto ? (hasPhotographicContent(page) ? .atkinson : .threshold) : mode
         let w = page.width, h = page.height
         let widthBytes = (w + 7) / 8

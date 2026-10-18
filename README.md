@@ -46,7 +46,8 @@ open /Applications/S1Print.app
 There is also a **Custom** size (48–80 mm wide, up to 600 mm long). On roll sizes
 s1print crops empty side margins and scales the content to the full 48 mm head,
 because browsers often lay a receipt out narrower than the paper; blank pages
-are skipped.
+are skipped. The printer asks apps for 406 dpi so small text is drawn with enough
+detail and then reduced to the 203 dpi head.
 
 ## Command line
 

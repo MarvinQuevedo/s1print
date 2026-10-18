@@ -31,8 +31,11 @@ public struct GrayPage: Equatable {
         width == headWidth ? self : scaled(toWidth: headWidth)
     }
 
-    /// Box-filter resample to a new width, preserving the aspect ratio.
+    /// Resamples to a new width, preserving the aspect ratio: area averaging
+    /// when shrinking, bilinear interpolation when enlarging (nearest-neighbour
+    /// enlargement turns antialiased edges into broken, jagged strokes).
     public func scaled(toWidth newWidth: Int) -> GrayPage {
+        if newWidth > width { return enlarged(toWidth: newWidth) }
         let newHeight = max(1, Int((Double(height) * Double(newWidth) / Double(width)).rounded()))
         var out = [UInt8](repeating: 255, count: newWidth * newHeight)
         let sx = Double(width) / Double(newWidth)
@@ -87,6 +90,25 @@ public struct GrayPage: Equatable {
     /// True when no pixel is darker than `threshold`.
     public func isBlank(threshold: UInt8 = 250) -> Bool {
         !pixels.contains(where: { $0 < threshold })
+    }
+
+    private func enlarged(toWidth newWidth: Int) -> GrayPage {
+        let newHeight = max(1, Int((Double(height) * Double(newWidth) / Double(width)).rounded()))
+        var out = [UInt8](repeating: 255, count: newWidth * newHeight)
+        let sx = Double(width) / Double(newWidth), sy = Double(height) / Double(newHeight)
+        for y in 0..<newHeight {
+            let fy = max(0, (Double(y) + 0.5) * sy - 0.5)
+            let y0 = min(height - 1, Int(fy)), y1 = min(height - 1, y0 + 1), ty = fy - Double(y0)
+            for x in 0..<newWidth {
+                let fx = max(0, (Double(x) + 0.5) * sx - 0.5)
+                let x0 = min(width - 1, Int(fx)), x1 = min(width - 1, x0 + 1), tx = fx - Double(x0)
+                let a = Double(pixels[y0 * width + x0]), b = Double(pixels[y0 * width + x1])
+                let c = Double(pixels[y1 * width + x0]), d = Double(pixels[y1 * width + x1])
+                let v = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
+                out[y * newWidth + x] = UInt8(max(0, min(255, v.rounded())))
+            }
+        }
+        return GrayPage(width: newWidth, height: newHeight, dpi: dpi * newWidth / max(1, width), pixels: out)
     }
 
     /// Columns that hold ink, or nil for a blank page.

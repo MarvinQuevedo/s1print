@@ -1,0 +1,16 @@
+#!/bin/sh
+# Runs the CLI through the app bundle, so macOS applies the app's Bluetooth permission.
+APP="${S1PRINT_APP:-/Applications/S1Print.app}"
+[ -d "$APP" ] || APP="$(cd "$(dirname "$0")/.." && pwd)/build/S1Print.app"
+OUT="$(mktemp -t s1print)"
+abs_args=""
+for a in "$@"; do
+  if [ -e "$a" ]; then a="$(cd "$(dirname "$a")" && pwd)/$(basename "$a")"; fi
+  abs_args="$abs_args $(printf '%s' "$a" | sed "s/'/'\\\\''/g; s/^/'/; s/\$/'/")"
+done
+envs=""
+for v in $(env | grep -o '^S1_[A-Z_]*'); do envs="$envs --env $v=$(printenv $v)"; done
+eval "open -W -n -g $envs --stdout \"\$OUT\" --stderr \"\$OUT\" -a \"\$APP\" --args $abs_args"
+status=$?
+cat "$OUT"; rm -f "$OUT"
+exit $status

@@ -1,6 +1,8 @@
 // swift-tools-version:5.10
 import PackageDescription
 
+// s1print — developed by Marvin Quevedo (https://github.com/MarvinQuevedo/s1print)
+
 let package = Package(
     name: "s1print",
     platforms: [.macOS(.v13)],

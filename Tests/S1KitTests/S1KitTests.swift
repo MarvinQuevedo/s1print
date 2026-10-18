@@ -48,3 +48,19 @@ final class S1KitTests: XCTestCase {
         XCTAssertEqual(raster[0].count, 8 + 255 * 48)
     }
 }
+
+final class FitContentTests: XCTestCase {
+    func testSharedCropUsesInkOfAllPages() {
+        var a = GrayPage(width: 100, height: 2); a[20, 0] = 0
+        var b = GrayPage(width: 100, height: 2); b[60, 1] = 0
+        XCTAssertEqual(GrayPage.sharedInkColumns(of: [a, b], padding: 2), 18...62)
+        XCTAssertEqual(a.cropped(toColumns: 18...62).width, 45)
+    }
+
+    func testBlankPagesAreNotPrinted() {
+        var ink = GrayPage(width: 384, height: 10); ink[5, 5] = 0
+        let o = PrintOptions()
+        let chunks = S1JobBuilder.build(pages: [ink, GrayPage(width: 384, height: 10)], options: o)
+        XCTAssertEqual(chunks.filter { $0.starts(with: [0x1D, 0x76, 0x30]) }.count, 1)
+    }
+}

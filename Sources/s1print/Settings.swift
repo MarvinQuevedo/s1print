@@ -10,6 +10,8 @@ struct Settings: Codable {
     var bytesPerSecond = 0
     var ippPort = 8631
     var serviceName = "S1 Bluetooth"
+    /// Also fit content to the head width on label sizes (rolls always do).
+    var fitContentWidth = true
 
     static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -65,12 +67,14 @@ func ippeveConfig() -> String {
     let sizes = MediaSize.all
     let def = sizes[0]
     var lines: [String] = []
-    lines.append("ATTR keyword media-supported " + sizes.map { "\"\($0.name)\"" }.joined(separator: ","))
+    // custom_min/custom_max tell CUPS to offer a custom size (fixed width, any length up to 600 mm).
+    lines.append("ATTR keyword media-supported " + sizes.map { "\"\($0.name)\"" }.joined(separator: ",") +
+        ",\"custom_min_48x10mm\",\"custom_max_80x600mm\"")
     lines.append("ATTR keyword media-default \"\(def.name)\"")
     lines.append("ATTR keyword media-ready \"\(def.name)\"")
     lines.append("ATTR collection media-size-supported " + sizes.map {
         "{MEMBER integer x-dimension \($0.width) MEMBER integer y-dimension \($0.height)}"
-    }.joined(separator: ","))
+    }.joined(separator: ",") + ",{MEMBER rangeOfInteger x-dimension 4800-8000 MEMBER rangeOfInteger y-dimension 1000-60000}")
     lines.append("ATTR collection media-col-database " + sizes.map(\.collection).joined(separator: ","))
     lines.append("ATTR collection media-col-default " + def.collection)
     lines.append("ATTR collection media-col-ready " + def.collection)

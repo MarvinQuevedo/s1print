@@ -8,8 +8,10 @@ import UniformTypeIdentifiers
 enum Preview {
     static func write(pages: [GrayPage], options: PrintOptions, to url: URL) throws {
         var bitmaps: [BitImage] = []
-        for page in pages {
-            var fitted = page.fitted(toWidth: options.headWidthDots)
+        let crop = GrayPage.sharedInkColumns(of: pages.filter { !$0.isBlank() })
+        for page in pages where !page.isBlank() {
+            let source = (options.fitContentWidth ? crop.map { page.cropped(toColumns: $0) } : nil) ?? page
+            var fitted = source.fitted(toWidth: options.headWidthDots)
             if options.trimBottom { fitted = fitted.trimmingVertical() }
             if options.maxBlankRows > 0 { fitted = fitted.collapsingBlankRuns(maxRows: options.maxBlankRows) }
             bitmaps.append(Dither.pack(fitted, mode: options.dither))

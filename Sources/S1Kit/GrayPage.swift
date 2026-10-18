@@ -83,4 +83,46 @@ public struct GrayPage: Equatable {
         }
         return GrayPage(width: width, height: out.count / width, dpi: dpi, pixels: out)
     }
+
+    /// True when no pixel is darker than `threshold`.
+    public func isBlank(threshold: UInt8 = 250) -> Bool {
+        !pixels.contains(where: { $0 < threshold })
+    }
+
+    /// Columns that hold ink, or nil for a blank page.
+    public func inkColumns(threshold: UInt8 = 250) -> ClosedRange<Int>? {
+        var left = width, right = -1
+        for y in 0..<height {
+            let row = y * width
+            var x = 0
+            while x < min(left, width) { if pixels[row + x] < threshold { left = x; break }; x += 1 }
+            x = width - 1
+            while x > max(right, -1) { if pixels[row + x] < threshold { right = x; break }; x -= 1 }
+        }
+        return right >= left ? left...right : nil
+    }
+
+    /// Keeps only `columns` (clamped to the page).
+    public func cropped(toColumns columns: ClosedRange<Int>) -> GrayPage {
+        let x0 = max(0, columns.lowerBound), x1 = min(width - 1, columns.upperBound)
+        let w = x1 - x0 + 1
+        guard w > 0, w < width else { return self }
+        var out = [UInt8](repeating: 255, count: w * height)
+        for y in 0..<height {
+            out.replaceSubrange(y * w..<(y + 1) * w, with: pixels[y * width + x0...y * width + x1])
+        }
+        return GrayPage(width: w, height: height, dpi: dpi, pixels: out)
+    }
+
+    /// The columns holding ink on any of `pages`, padded, for one shared crop.
+    ///
+    /// Browsers often lay a receipt out narrower than the paper (Safari drew a
+    /// 58 mm ticket in 270 of 463 columns), so scaling the full page width made
+    /// the print far too small. One range for the whole job keeps every page at
+    /// the same scale.
+    public static func sharedInkColumns(of pages: [GrayPage], padding: Int = 6) -> ClosedRange<Int>? {
+        let ranges = pages.compactMap { $0.inkColumns() }
+        guard let lo = ranges.map(\.lowerBound).min(), let hi = ranges.map(\.upperBound).max() else { return nil }
+        return (lo - padding)...(hi + padding)
+    }
 }

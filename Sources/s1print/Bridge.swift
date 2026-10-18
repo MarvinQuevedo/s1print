@@ -12,8 +12,8 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var server: Process?
     private var stopping = false
-    private let stateItem = NSMenuItem(title: "Iniciando…", action: nil, keyEquivalent: "")
-    private let loginItem = NSMenuItem(title: "Abrir al iniciar sesión", action: #selector(toggleLogin), keyEquivalent: "")
+    private let stateItem = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
+    private let loginItem = NSMenuItem(title: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
 
     static func run() -> Never {
         let app = NSApplication.shared
@@ -32,13 +32,14 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         stateItem.isEnabled = false
         menu.addItem(stateItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Imprimir página de prueba", action: #selector(testPage), keyEquivalent: "t").target = self
-        menu.addItem(withTitle: "Agregar a Impresoras de macOS", action: #selector(addQueue), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Abrir página de la impresora", action: #selector(openWeb), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Print Test Page", action: #selector(testPage), keyEquivalent: "t").target = self
+        menu.addItem(withTitle: "Add to macOS Printers", action: #selector(addQueue), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Open Printer Web Page", action: #selector(openWeb), keyEquivalent: "").target = self
         loginItem.target = self
         menu.addItem(loginItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Salir", action: #selector(quit), keyEquivalent: "q").target = self
+        menu.addItem(withTitle: "About S1Print", action: #selector(about), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Quit S1Print", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
         startServer()
         if !queueExists() { addQueue() }
@@ -47,8 +48,8 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         if #available(macOS 13.0, *) { loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off }
         stateItem.title = server?.isRunning == true
-            ? "Impresora «\(Settings.load().serviceName)» publicada"
-            : "El servidor de impresión no está corriendo"
+            ? "Printer “\(Settings.load().serviceName)” is online"
+            : "The print server is not running"
     }
 
     // MARK: ippeveprinter
@@ -77,7 +78,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.startServer()
             }
         }
-        do { try p.run(); server = p } catch { stateItem.title = "No se pudo iniciar ippeveprinter: \(error)" }
+        do { try p.run(); server = p } catch { stateItem.title = "Could not start ippeveprinter: \(error)" }
     }
 
     private var printerURI: String { "ipp://localhost:\(Settings.load().ippPort)/ipp/print" }
@@ -109,7 +110,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                                "-o", "media=\(MediaSize.all[0].name)"])
             }
             DispatchQueue.main.async {
-                self.stateItem.title = ok ? "Agregada como «\(Settings.load().serviceName)»" : "No se pudo agregar la impresora"
+                self.stateItem.title = ok ? "Added as “\(Settings.load().serviceName)”" : "Could not add the printer"
             }
         }
     }
@@ -120,7 +121,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         p.arguments = ["test"]
         p.terminationHandler = { proc in
             DispatchQueue.main.async {
-                self.stateItem.title = proc.terminationStatus == 0 ? "Página de prueba enviada" : "La prueba falló: ¿está encendida?"
+                self.stateItem.title = proc.terminationStatus == 0 ? "Test page sent" : "Test failed: is the printer on?"
             }
         }
         try? p.run()
@@ -136,8 +137,18 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             if service.status == .enabled { try service.unregister() } else { try service.register() }
         } catch {
-            stateItem.title = "No se pudo cambiar el inicio de sesión"
+            stateItem.title = "Could not change the login item"
         }
+    }
+
+    @objc private func about() {
+        let credits = NSMutableAttributedString(string: "Open-source driver for the Luck Jingle S1 Bluetooth thermal printer.\n\nDeveloped by Marvin Quevedo\n")
+        let link = "github.com/MarvinQuevedo/s1print"
+        credits.append(NSAttributedString(string: link, attributes: [.link: URL(string: "https://\(link)")!]))
+        credits.append(NSAttributedString(string: "\n\nMIT License. Not affiliated with Luck Jingle."))
+        credits.addAttribute(.font, value: NSFont.systemFont(ofSize: 11), range: NSRange(location: 0, length: credits.length))
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
 
     @objc private func quit() {

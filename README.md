@@ -1,5 +1,7 @@
 # s1print
 
+Developed by **[Marvin Quevedo](https://github.com/MarvinQuevedo)**.
+
 Open-source driver for the **Luck Jingle S1** Bluetooth thermal printer
 (the Xiamen Lujiang "LuckPrinter" family). The vendor offers no macOS driver for
 the S1; s1print makes it show up as a normal printer on the Mac, so you can
@@ -31,17 +33,20 @@ open /Applications/S1Print.app
 
 1. Pair the printer in System Settings → Bluetooth (it shows up as `PPS1_XXXX`, with a keyboard icon).
 2. Open S1Print and allow Bluetooth when macOS asks.
-3. The queue **S1 Bluetooth** is added automatically. Use the menu-bar icon → *Imprimir página de prueba* to check it.
+3. The queue **S1 Bluetooth** is added automatically. Use the menu-bar icon → *Print Test Page* to check it.
 
 ## Paper sizes
 
 | Size | Use |
 |---|---|
-| Rollo 58 mm (58 × 600 mm, default) | Receipts and tickets: blank space above and below is cut off |
-| Rollo 80 mm (80 × 600 mm) | 80 mm receipts, scaled to the 48 mm head |
+| 58 mm roll (58 × 600 mm, default) | Receipts and tickets: blank space above and below is cut off |
+| 80 mm roll (80 × 600 mm) | 80 mm receipts, scaled to the 48 mm head |
 | 58 × 30 / 40 / 50 / 80 mm | Labels and stickers |
 
-The whole page width is always scaled to the 48 mm printhead.
+There is also a **Custom** size (48–80 mm wide, up to 600 mm long). On roll sizes
+s1print crops empty side margins and scales the content to the full 48 mm head,
+because browsers often lay a receipt out narrower than the paper; blank pages
+are skipped.
 
 ## Command line
 
@@ -59,6 +64,10 @@ scripts/s1print preview ticket.pdf out.png   # what would be printed, no Bluetoo
 See [docs/PROTOCOL.md](docs/PROTOCOL.md). Thanks to
 [fichero-printer](https://github.com/0xMH/fichero-printer) for documenting the
 LuckPrinter command family.
+
+## Author
+
+Marvin Quevedo — [github.com/MarvinQuevedo](https://github.com/MarvinQuevedo)
 
 ## License
 

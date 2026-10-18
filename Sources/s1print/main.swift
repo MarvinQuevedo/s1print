@@ -117,6 +117,7 @@ func parseOptions(_ argv: inout [String]) -> (PrintOptions, String?) {
         case "--dither": o.dither = DitherMode(rawValue: value()) ?? .auto
         case "--label": o.labelPaper = true
         case "--trim": o.trimBottom = true
+        case "--fit": o.fitContentWidth = true
         case "--feed": o.feedAfterPage = Int(value()) ?? o.feedAfterPage
         case "--address", "-a": address = value()
         default: rest.append(a)
@@ -136,6 +137,7 @@ func ippOptions() -> PrintOptions {
     let isRoll = mediaName.contains("roll") || mediaName.contains("ticket") ||
         media.contains("y-dimension=60000")
     o.trimBottom = isRoll
+    o.fitContentWidth = isRoll || Settings.load().fitContentWidth
     o.feedAfterPage = isRoll ? 80 : 40
     switch env["IPP_PRINT_QUALITY"] {
     case "draft": o.density = 0
@@ -193,7 +195,7 @@ do {
             if let s = i.status { print("status:   \(s)") }
         }
     case "test":
-        var lines = ["Impresora: S1 por Bluetooth", "Ancho: \(options.headWidthDots) puntos (48 mm)"]
+        var lines = ["Printer: S1 over Bluetooth", "Width: \(options.headWidthDots) dots (48 mm)", "by Marvin Quevedo"]
         lines.append(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .short))
         try printPages([Renderer.testPage(width: options.headWidthDots, lines: lines)], options: options, address: address)
         print("test page sent")
@@ -203,7 +205,7 @@ do {
         var pages: [GrayPage] = []
         for path in argv {
             let url = URL(fileURLWithPath: path)
-            if url.pathExtension.lowercased() == "pdf" { o.trimBottom = true }
+            if url.pathExtension.lowercased() == "pdf" { o.trimBottom = true; o.fitContentWidth = true }
             pages += try Renderer.pages(from: url, width: o.headWidthDots)
         }
         try printPages(pages, options: o, address: address)
@@ -215,6 +217,7 @@ do {
         let input = URL(fileURLWithPath: argv[0])
         if input.pathExtension.lowercased() == "pdf" || RasterDecoder.isRaster((try? Data(contentsOf: input)) ?? Data()) {
             o.trimBottom = true
+            o.fitContentWidth = true
         }
         let pages = try Renderer.pages(from: input, width: o.headWidthDots)
         try Preview.write(pages: pages, options: o, to: URL(fileURLWithPath: argv[1]))
@@ -234,6 +237,7 @@ do {
     case "help", "--help", "-h":
         print("""
         s1print — open-source driver for the Luck Jingle S1 Bluetooth thermal printer
+        Developed by Marvin Quevedo · https://github.com/MarvinQuevedo/s1print
 
           s1print                 start the menu-bar bridge (publishes the printer to macOS)
           s1print status          show model, firmware, battery and paper status
@@ -241,7 +245,8 @@ do {
           s1print print FILE…     print PDF, PNG, JPEG or PWG/URF raster files
                 --density 0|1|2   light, medium, dark
                 --dither MODE     auto, threshold, floyd, atkinson
-                --trim            cut trailing white space (default for PDF)
+                --trim            cut white space above and below (default for PDF)
+                --fit             crop empty side margins and fill the head width (default for PDF)
                 --label           advance to the next label gap after each page
           s1print raw HEX…        send raw bytes (debugging)
         """)

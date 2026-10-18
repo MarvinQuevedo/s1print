@@ -95,6 +95,8 @@ public struct PrintOptions {
     public var trimBottom = false
     /// Longest run of blank rows ever sent; 160 dots = 20 mm. 0 disables the cap.
     public var maxBlankRows = 160
+    /// Crop empty side margins and scale the content to the full head width.
+    public var fitContentWidth = false
     /// Rows per GS v 0 block; small blocks keep the printer's buffer from overflowing.
     public var rowsPerBlock = 255
 
@@ -108,8 +110,11 @@ public enum S1JobBuilder {
     /// the transport paces them so the printer can keep up.
     public static func build(pages: [GrayPage], options: PrintOptions) -> [Data] {
         var out: [Data] = [S1Command.density(options.density), S1Command.wake, S1Command.enable]
-        for (index, page) in pages.enumerated() {
-            var fitted = page.fitted(toWidth: options.headWidthDots)
+        let printable = pages.filter { !$0.isBlank() }
+        let crop = GrayPage.sharedInkColumns(of: printable)
+        for (index, page) in printable.enumerated() {
+            let source = (options.fitContentWidth ? crop.map { page.cropped(toColumns: $0) } : nil) ?? page
+            var fitted = source.fitted(toWidth: options.headWidthDots)
             if options.trimBottom { fitted = fitted.trimmingVertical() }
             if options.maxBlankRows > 0 { fitted = fitted.collapsingBlankRuns(maxRows: options.maxBlankRows) }
             let bitmap = Dither.pack(fitted, mode: options.dither)
@@ -122,7 +127,7 @@ public enum S1JobBuilder {
             }
             if options.labelPaper {
                 out.append(S1Command.formFeed)
-            } else if options.feedAfterPage > 0 && (index == pages.count - 1 || !options.trimBottom) {
+            } else if options.feedAfterPage > 0 && (index == printable.count - 1 || !options.trimBottom) {
                 out.append(S1Command.feed(dots: options.feedAfterPage))
             }
         }

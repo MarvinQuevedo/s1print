@@ -129,7 +129,9 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var args = ["-p", String(settings.ippPort), "-c", Bundle.main.executablePath ?? CommandLine.arguments[0],
                     "-d", spool.path, "-a", conf.path, "--no-web-forms"]
         // Without sharing, bind to loopback only so other devices cannot print here.
-        if !settings.shareOnNetwork { args += ["-n", "localhost"] }
+        // and do not advertise it over Bonjour either: an advertised "S1 Bluetooth"
+        // also shows up in CUPS as a network destination named like our queue.
+        if !settings.shareOnNetwork { args += ["-n", "localhost", "-r", "off"] }
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
         args.append(settings.serviceName)
         p.arguments = args
@@ -145,8 +147,11 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var printerURI: String { "ipp://localhost:\(Settings.load().ippPort)/ipp/print" }
 
+    /// True only for the local CUPS queue. `lpstat -p NAME` also succeeds for a
+    /// Bonjour-discovered printer with that name, which made the menu offer
+    /// "remove" for a queue that no longer existed. A local queue has a PPD.
     private func queueExists() -> Bool {
-        run("/usr/bin/lpstat", ["-p", Bridge.queueName]) == 0
+        FileManager.default.fileExists(atPath: "/etc/cups/ppd/\(Bridge.queueName).ppd")
     }
 
     @discardableResult

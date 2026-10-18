@@ -32,7 +32,9 @@ open /Applications/S1Print.app
 ```
 
 1. Pair the printer in System Settings → Bluetooth (it shows up as `PPS1_XXXX`, with a keyboard icon).
-2. Open S1Print and allow Bluetooth when macOS asks.
+2. Open S1Print and allow Bluetooth when macOS asks. `bundle.sh` signs with your
+   first "Apple Development" identity (or `SIGN_IDENTITY`) so the permission is
+   kept across rebuilds; an ad-hoc signature makes macOS ask again after each build.
 3. The queue **S1 Bluetooth** is added automatically. Use the menu-bar icon → *Print Test Page* to check it.
 
 ## Paper sizes

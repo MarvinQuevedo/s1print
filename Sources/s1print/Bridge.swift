@@ -20,6 +20,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var queueBusy = false
     private var lastStatusCheck = Date.distantPast
     private var statusCheckRunning = false
+    let model = AppModel()
 
     static func run() -> Never {
         let app = NSApplication.shared
@@ -48,9 +49,11 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItem.target = self
         menu.addItem(loginItem)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "About S1Print", action: #selector(about), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Quit S1Print", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
+        wireModel()
         startServer()
         // First run: install the queue so the printer just shows up in print dialogs.
         if !UserDefaults.standard.bool(forKey: "queueOffered") {
@@ -66,6 +69,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
             : "Print server: not running"
         if !queueBusy {
             queueItem.state = queueExists() ? .on : .off
+            model.queueInstalled = queueItem.state == .on
             queueItem.title = "Installed in macOS Printers"
         }
         refreshPrinterStatus()
@@ -95,7 +99,11 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 title = "Printer: off or out of range"
             }
+            let detail = [field("model"), field("firmware").map { "firmware \($0)" }].compactMap { $0 }.joined(separator: " · ")
             DispatchQueue.main.async {
+                self?.model.printerTitle = proc.terminationStatus == 0 ? title : "Printer off or out of range"
+                self?.model.printerDetail = proc.terminationStatus == 0 ? detail : "Turn it on and make sure it is paired"
+                self?.model.printerReachable = proc.terminationStatus == 0
                 self?.printerItem.title = title
                 self?.lastStatusCheck = Date()
                 self?.statusCheckRunning = false
@@ -120,6 +128,8 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         p.executableURL = URL(fileURLWithPath: "/usr/bin/ippeveprinter")
         var args = ["-p", String(settings.ippPort), "-c", Bundle.main.executablePath ?? CommandLine.arguments[0],
                     "-d", spool.path, "-a", conf.path, "--no-web-forms"]
+        // Without sharing, bind to loopback only so other devices cannot print here.
+        if !settings.shareOnNetwork { args += ["-n", "localhost"] }
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
         args.append(settings.serviceName)
         p.arguments = args
@@ -170,6 +180,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Adds or removes the CUPS queue, showing progress in the menu and a confirmation bubble.
     private func setQueue(installed: Bool, delay: TimeInterval = 0) {
         queueBusy = true
+        model.queueBusy = true
         queueItem.title = installed ? "Adding to macOS Printers…" : "Removing from macOS Printers…"
         let name = Settings.load().serviceName
         DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
@@ -190,6 +201,8 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.queueBusy = false
                 self.queueItem.title = "Installed in macOS Printers"
                 self.queueItem.state = nowInstalled ? .on : .off
+                self.model.queueInstalled = nowInstalled
+                self.model.queueBusy = false
                 if ok {
                     self.toast(installed ? "“\(name)” added to your printers" : "“\(name)” removed from your printers",
                                symbol: installed ? "checkmark.circle.fill" : "minus.circle.fill")
@@ -237,8 +250,45 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let service = SMAppService.mainApp
         do {
             if service.status == .enabled { try service.unregister() } else { try service.register() }
+            model.openAtLogin = service.status == .enabled
         } catch {
             stateItem.title = "Could not change the login item"
+        }
+    }
+
+    @objc private func openSettings() {
+        model.queueInstalled = queueExists()
+        if #available(macOS 13.0, *) { model.openAtLogin = SMAppService.mainApp.status == .enabled }
+        lastStatusCheck = .distantPast
+        SettingsWindow.show(model: model)
+    }
+
+    private func wireModel() {
+        model.printTestPage = { [weak self] in self?.testPage() }
+        model.refreshPrinter = { [weak self] in self?.refreshPrinterStatus() }
+        model.setQueueInstalled = { [weak self] on in
+            guard let self, !self.queueBusy, on != self.queueExists() else { return }
+            if on { self.setQueue(installed: true) } else { self.toggleQueue() }
+        }
+        model.setOpenAtLogin = { [weak self] on in
+            guard #available(macOS 13.0, *) else { return }
+            let service = SMAppService.mainApp
+            do { if on { try service.register() } else { try service.unregister() } } catch {
+                self?.toast("Could not change the login item", symbol: "exclamationmark.triangle.fill")
+            }
+            self?.model.openAtLogin = service.status == .enabled
+        }
+        model.serverSettingsChanged = { [weak self] old in
+            guard let self else { return }
+            let s = Settings.load()
+            if s.serviceName != old.serviceName, self.queueExists() {
+                DispatchQueue.global().async { self.run("/usr/sbin/lpadmin", ["-p", Bridge.queueName, "-D", s.serviceName]) }
+            }
+            // The termination handler starts it again with the new settings.
+            self.server?.terminate()
+            self.toast(s.shareOnNetwork != old.shareOnNetwork
+                ? (s.shareOnNetwork ? "Printer shared on the local network" : "Printer available on this Mac only")
+                : "Printer renamed to “\(s.serviceName)”", symbol: "checkmark.circle.fill")
         }
     }
 

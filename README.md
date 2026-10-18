@@ -46,6 +46,22 @@ open /Applications/S1Print.app
    printer's battery and paper state, prints a test page, and adds or removes the
    queue (*Installed in macOS Printers*).
 
+## Settings
+
+Menu-bar icon → **Settings…** (⌘,):
+
+| Setting | Default | What it does |
+|---|---|---|
+| Bluetooth printer | Automatic | Pick one paired S1 when you have several |
+| Darkness | Medium | Light, medium or dark printing |
+| Fit content to paper width | On | Crop empty side margins and fill the 48 mm head |
+| Printer name | S1 Bluetooth | Name shown in print dialogs |
+| Installed in macOS Printers | On | Add or remove the print queue |
+| Open at login | Off | Start S1Print when you log in |
+| Share on the local network | **Off** | Off: the print server listens on this Mac only (127.0.0.1). On: other devices on your network can find and use the printer |
+
+Settings live in `~/Library/Application Support/s1print/settings.json`.
+
 ## Paper sizes
 
 | Size | Use |

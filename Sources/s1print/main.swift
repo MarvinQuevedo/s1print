@@ -137,7 +137,7 @@ func ippOptions() -> PrintOptions {
     let isRoll = mediaName.contains("roll") || mediaName.contains("ticket") ||
         media.contains("y-dimension=60000")
     o.trimBottom = isRoll
-    o.fitContentWidth = isRoll || Settings.load().fitContentWidth
+    o.fitContentWidth = Settings.load().fitContentWidth
     o.feedAfterPage = isRoll ? 80 : 40
     switch env["IPP_PRINT_QUALITY"] {
     case "draft": o.density = 0

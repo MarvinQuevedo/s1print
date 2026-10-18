@@ -1,17 +1,38 @@
 import Foundation
 
 /// User settings, stored as JSON in ~/Library/Application Support/s1print/settings.json.
-struct Settings: Codable {
+struct Settings: Codable, Equatable {
     /// Bluetooth address of the printer; nil picks the first paired S1.
     var address: String?
+    /// 0 = light, 1 = medium, 2 = dark.
     var density = 1
     /// Optional cap on the Bluetooth send rate; 0 lets RFCOMM flow control set the pace.
     /// Pacing below the print speed starves the head and leaves white bands.
     var bytesPerSecond = 0
     var ippPort = 8631
+    /// Name shown in print dialogs and published over Bonjour.
     var serviceName = "S1 Bluetooth"
-    /// Also fit content to the head width on label sizes (rolls always do).
+    /// Crop empty side margins and fill the head width.
     var fitContentWidth = true
+    /// Let other devices on the network find and use the printer. Off: the
+    /// print server listens on this Mac's loopback interface only.
+    var shareOnNetwork = false
+
+    init() {}
+
+    /// Reads each key on its own, so a settings file written by an older
+    /// version (missing newer keys) keeps its values instead of being reset.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Settings()
+        address = try c.decodeIfPresent(String.self, forKey: .address)
+        density = try c.decodeIfPresent(Int.self, forKey: .density) ?? d.density
+        bytesPerSecond = try c.decodeIfPresent(Int.self, forKey: .bytesPerSecond) ?? d.bytesPerSecond
+        ippPort = try c.decodeIfPresent(Int.self, forKey: .ippPort) ?? d.ippPort
+        serviceName = try c.decodeIfPresent(String.self, forKey: .serviceName) ?? d.serviceName
+        fitContentWidth = try c.decodeIfPresent(Bool.self, forKey: .fitContentWidth) ?? d.fitContentWidth
+        shareOnNetwork = try c.decodeIfPresent(Bool.self, forKey: .shareOnNetwork) ?? d.shareOnNetwork
+    }
 
     static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

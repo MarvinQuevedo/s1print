@@ -39,7 +39,8 @@ Requires macOS 13 Ventura or later. Releases from 0.3.4 on are signed with a Dev
 | Luck Jingle **S1** (`S1_LYiN48D_GY`, firmware V3.0.3), 56–58 mm paper | Tested |
 | Other Luck Jingle / LuckPrinter "Lujiang" models (names like `PPS1_`, `S1_`, `LuckP`) | Untested. They may work; please [open an issue](https://github.com/MarvinQuevedo/s1print/issues/new) with your model |
 | Printers that use the Luck Jingle app under other brands | Untested. The command set is shared by the LuckPrinter family, but start/stop commands and head width vary |
-| Windows, Linux | Planned: [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) |
+| Android, Windows | Native preview on `feature/native-rust-platforms`: [setup and builds](docs/NATIVE_PLATFORMS.md). Physical printer tests pending |
+| Linux | Rust core only; native printer application remains planned: [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) |
 
 ## FAQ
 
@@ -97,6 +98,14 @@ open /Applications/S1Print.app
 ```
 
 `bundle.sh` signs with your first "Apple Development" identity (or `SIGN_IDENTITY`), so the Bluetooth permission survives rebuilds. `scripts/release.sh` signs with a Developer ID, notarizes and staples.
+
+## Rust core development
+
+An additive, platform-independent Rust implementation of the print pipeline is
+available in `rust/s1-core`. The Mac app still uses Swift. A differential runner
+compares both implementations case by case and exports images and command bytes
+for review. See [docs/RUST_CORE.md](docs/RUST_CORE.md) for commands, coverage and
+platform integration boundaries.
 
 ## How it works
 

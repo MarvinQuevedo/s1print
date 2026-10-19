@@ -3,3 +3,12 @@ build/
 .swiftpm/
 *.xcodeproj
 .DS_Store
+rust/target/
+native/android/.gradle/
+native/android/.kotlin/
+native/android/local.properties
+native/android/**/build/
+native/android/app/src/main/jniLibs/
+native/windows/**/bin/
+native/windows/**/obj/
+native/windows/artifacts/

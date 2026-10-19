@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting><UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest><Version>0.4.0</Version>
+    <AssemblyName>S1Print</AssemblyName><RootNamespace>S1Print.Windows</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../S1Print.Engine/S1Print.Engine.csproj" /></ItemGroup>
+  <ItemGroup><None Include="../../../rust/target/x86_64-pc-windows-msvc/release/s1_native.dll" Link="s1_native.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../../rust/target/x86_64-pc-windows-msvc/release/s1_native.dll')" /></ItemGroup>
+</Project>

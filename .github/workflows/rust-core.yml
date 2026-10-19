@@ -1,0 +1,49 @@
+name: Rust core
+on:
+  push:
+    paths: ['rust/**', 'Sources/S1Kit/**', 'tools/swift-oracle/**', 'scripts/compare-rust.py', '.github/workflows/rust-core.yml']
+  pull_request:
+    paths: ['rust/**', 'Sources/S1Kit/**', 'tools/swift-oracle/**', 'scripts/compare-rust.py', '.github/workflows/rust-core.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-tests:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --manifest-path rust/Cargo.toml --all --check
+      - run: cargo test --manifest-path rust/Cargo.toml --locked --release --workspace --all-targets
+      - run: cargo clippy --manifest-path rust/Cargo.toml --locked --workspace --all-targets -- -D warnings
+
+  android-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android,armv7-linux-androideabi
+      # Library type checking needs the Rust target, but does not link an Android app.
+      - run: cargo check --manifest-path rust/Cargo.toml --locked --target aarch64-linux-android
+      - run: cargo check --manifest-path rust/Cargo.toml --locked --target x86_64-linux-android
+      - run: cargo check --manifest-path rust/Cargo.toml --locked --target armv7-linux-androideabi
+
+  swift-parity:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python3 scripts/compare-rust.py --release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swift-rust-comparison
+          path: rust/target/parity/

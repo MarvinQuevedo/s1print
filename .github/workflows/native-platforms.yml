@@ -1,0 +1,63 @@
+name: Native platforms
+on:
+  push:
+    branches: ['feature/native-rust-platforms', 'main']
+    paths: ['native/**', 'rust/**', 'scripts/build-*', 'docs/NATIVE_PLATFORMS.md', '.github/workflows/native-platforms.yml']
+  pull_request:
+    paths: ['native/**', 'rust/**', 'scripts/build-*', 'docs/NATIVE_PLATFORMS.md', '.github/workflows/native-platforms.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test Rust and the native C ABI / IPP pipeline
+        shell: pwsh
+        run: |
+          cargo test --manifest-path rust/Cargo.toml --workspace --all-targets --locked
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo build --manifest-path rust/Cargo.toml -p s1-native --locked --release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          dotnet run --project native/windows/S1Print.Tests
+      - name: Install installer compiler
+        shell: pwsh
+        run: |
+          if (!(Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) { choco install innosetup -y --no-progress }
+      - name: Package Windows app
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -Installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S1Print-Windows-x64
+          path: |
+            build/windows/S1Print-Windows-x64.zip
+            build/windows/S1Print-Windows-x64-Setup.exe
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;26.3.11579264'
+      - name: Build APK, instrumentation tests and lint
+        run: native/android/gradlew -p native/android assembleDebug assembleDebugAndroidTest lintDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S1Print-Android
+          path: |
+            native/android/app/build/outputs/apk/debug/app-debug.apk
+            native/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            native/android/app/build/reports/lint-results-debug.html

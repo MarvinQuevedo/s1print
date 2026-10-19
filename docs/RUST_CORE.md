@@ -109,3 +109,12 @@ Native target `cargo check` validates compilation of the library, not linking,
 FFI packaging, Bluetooth access or execution on a device. Physical validation
 must eventually compare the same receipt on Mac, Android and Windows, including
 long receipts, battery/paper errors, disconnects and the final printer acknowledgment.
+
+## Native renderer boundary
+
+The strict equality checks begin with the same grayscale pixels or raster bytes.
+Android uses PdfRenderer and Windows uses Windows.Data.Pdf; macOS uses
+CoreGraphics. These native PDF renderers can produce different antialiasing or
+color conversion for the same PDF. For strict byte comparisons across systems,
+feed the same grayscale/raster fixture into Rust. Compare native PDF output
+separately for layout, readability, QR scanning and physical print quality.

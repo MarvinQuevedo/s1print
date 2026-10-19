@@ -1,0 +1,11 @@
+<resources>
+    <!-- API 29+: no automatic contrast scrims and no forced dark; the palette is designed for light. -->
+    <style name="AppTheme" parent="BaseAppTheme">
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

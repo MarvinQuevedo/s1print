@@ -12,3 +12,5 @@ native/android/app/src/main/jniLibs/
 native/windows/**/bin/
 native/windows/**/obj/
 native/windows/artifacts/
+native/ios/Frameworks/
+native/ios/DerivedData/

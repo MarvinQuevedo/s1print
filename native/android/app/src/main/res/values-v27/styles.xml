@@ -1,5 +1,7 @@
 <resources>
+    <!-- API 27+: the light navigation bar attribute exists, so use a light bar with dark icons. -->
     <style name="AppTheme" parent="BaseAppTheme">
+        <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

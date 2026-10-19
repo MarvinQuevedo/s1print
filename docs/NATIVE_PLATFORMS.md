@@ -1,4 +1,6 @@
-# Android and Windows native preview
+# Native platform previews
+
+See [IOS.md](IOS.md) for the iOS app, BLE transport, Share Extension, and shared-document import behavior.
 
 This branch adds native Android and Windows applications backed by the same
 Rust processing library. The existing macOS application remains unchanged.

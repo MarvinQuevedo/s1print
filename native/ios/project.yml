@@ -1,0 +1,93 @@
+name: S1Print
+options:
+  bundleIdPrefix: com.factadte
+  deploymentTarget:
+    iOS: '17.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+    MARKETING_VERSION: '0.4.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: RW9J2C59YC
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  S1Print:
+    type: application
+    platform: iOS
+    sources: [App, Shared]
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: S1Print
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSBluetoothAlwaysUsageDescription: S1Print connects to your thermal printer to print documents you choose.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Printable documents
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.adobe.pdf, public.image]
+        LSSupportsOpeningDocumentsInPlace: YES
+    entitlements:
+      path: App/S1Print.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.factadte.s1printer]
+    dependencies:
+      - framework: Frameworks/S1Native.xcframework
+        embed: false
+      - sdk: Security.framework
+      - target: S1PrintShare
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.factadte.s1printer
+        SWIFT_OBJC_BRIDGING_HEADER: App/S1Print-Bridging-Header.h
+  S1PrintShare:
+    type: app-extension
+    platform: iOS
+    sources: [ShareExtension, Shared, App/NativeCore.swift, App/BluetoothPrinter.swift, App/PrintExchange.swift]
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: S1Print
+        NSBluetoothAlwaysUsageDescription: S1Print connects to your thermal printer to print documents you share.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationDictionaryVersion: 2
+              NSExtensionActivationSupportsFileWithMaxCount: 20
+              NSExtensionActivationSupportsImageWithMaxCount: 20
+              NSExtensionActivationSupportsText: YES
+    entitlements:
+      path: ShareExtension/S1PrintShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.factadte.s1printer]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.factadte.s1printer.share
+        SWIFT_OBJC_BRIDGING_HEADER: App/S1Print-Bridging-Header.h
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - framework: Frameworks/S1Native.xcframework
+        embed: false
+  S1PrintTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.factadte.s1printer.tests
+    dependencies:
+      - target: S1Print
+schemes:
+  S1Print:
+    build:
+      targets:
+        S1Print: all
+    test:
+      targets: [S1PrintTests]

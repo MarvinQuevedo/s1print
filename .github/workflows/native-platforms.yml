@@ -1,9 +1,7 @@
 name: Native platforms
 on:
-  push:
-    branches: ['feature/native-rust-platforms', 'main']
-    paths: ['native/**', 'rust/**', 'scripts/build-*', 'docs/NATIVE_PLATFORMS.md', '.github/workflows/native-platforms.yml']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ['native/**', 'rust/**', 'scripts/build-*', 'docs/NATIVE_PLATFORMS.md', '.github/workflows/native-platforms.yml']
   workflow_dispatch:
 concurrency:
@@ -13,6 +11,7 @@ permissions:
   contents: read
 jobs:
   windows:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +42,7 @@ jobs:
             build/windows/S1Print-Windows-x64-Setup.exe
 
   android:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -15,7 +15,11 @@ import java.io.File
 
 object Documents {
     const val MAX_PIXELS = 32 * 1024 * 1024
-    fun read(context: Context, uri: Uri, cancelled: () -> Boolean): JSONArray {
+    fun read(context: Context, uri: Uri, cancelled: () -> Boolean): JSONArray =
+        readWithLimits(context, uri, MAX_PIXELS, 100, cancelled)
+
+    fun readWithLimits(context: Context, uri: Uri, maxPixels: Int, maxPages: Int, cancelled: () -> Boolean): JSONArray {
+        require(maxPixels > 0 && maxPages > 0) { "Shared job exceeds 100 pages or 32 Mi pixels" }
         // Copy content providers to a seekable private file; PdfRenderer requires seeking.
         val file = File.createTempFile("document-", ".input", context.cacheDir)
         try {
@@ -35,14 +39,17 @@ object Documents {
                 }
             }
             val magic = file.inputStream().use { input -> ByteArray(5).also { input.read(it) } }
-            return if (magic.contentEquals("%PDF-".toByteArray())) pdf(file, null, cancelled) else image(file)
+            return if (magic.contentEquals("%PDF-".toByteArray())) pdfWithLimits(file, null, maxPixels, maxPages, cancelled) else image(file, maxPixels)
         } finally { file.delete() }
     }
-    fun pdf(file: File, ranges: Array<PageRange>?, cancelled: () -> Boolean): JSONArray {
+    fun pdf(file: File, ranges: Array<PageRange>?, cancelled: () -> Boolean): JSONArray =
+        pdfWithLimits(file, ranges, MAX_PIXELS, 100, cancelled)
+
+    private fun pdfWithLimits(file: File, ranges: Array<PageRange>?, maxPixels: Int, maxPages: Int, cancelled: () -> Boolean): JSONArray {
         val result = JSONArray()
         var total = 0L
         PdfRenderer(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)).use { renderer ->
-            require(renderer.pageCount <= 100) { "Document exceeds 100 pages" }
+            require(renderer.pageCount <= maxPages) { "Document exceeds 100 pages" }
             for (i in 0 until renderer.pageCount) {
                 if (ranges != null && ranges.none { i >= it.start && i <= it.end }) continue
                 check(!cancelled()) { "Canceled" }
@@ -50,7 +57,7 @@ object Documents {
                     val width = 768
                     val height = maxOf(1, (page.height.toDouble() * width / page.width).toInt())
                     total += width.toLong() * height
-                    require(total <= MAX_PIXELS) { "Document exceeds 32 Mi pixels" }
+                    require(total <= maxPixels) { "Document exceeds 32 Mi pixels" }
                     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     try {
                         bitmap.eraseColor(Color.WHITE)
@@ -62,12 +69,12 @@ object Documents {
         }
         return result
     }
-    private fun image(file: File): JSONArray {
+    private fun image(file: File, maxPixels: Int): JSONArray {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
         require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Unsupported image" }
         var sample = 1
-        while (bounds.outWidth.toLong() * bounds.outHeight / sample / sample > MAX_PIXELS) sample *= 2
+        while (bounds.outWidth.toLong() * bounds.outHeight / sample / sample > maxPixels) sample *= 2
         val bitmap = requireNotNull(BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample }))
         try { return JSONArray().put(NativeCore.grayPage(bitmap)) } finally { bitmap.recycle() }
     }

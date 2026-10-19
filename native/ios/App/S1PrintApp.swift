@@ -1,0 +1,143 @@
+import SwiftUI
+import UniformTypeIdentifiers
+import CoreBluetooth
+
+@main struct S1PrintApp: App {
+    var body: some Scene { WindowGroup { MainScreen() } }
+}
+struct MainScreen: View {
+    @StateObject private var model = AppModel()
+    @StateObject private var settings: PrintSettings
+    @StateObject private var printer: BluetoothPrinter
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var importing = false
+    @State private var printTask: Task<Void, Never>?
+    init() {
+        let settings = PrintSettings()
+        _settings = StateObject(wrappedValue: settings)
+        _printer = StateObject(wrappedValue: BluetoothPrinter(settings: settings))
+    }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 12) {
+                        Image("AppLogo").resizable().scaledToFit().frame(width: 52, height: 52).accessibilityHidden(true)
+                        VStack(alignment: .leading) { Text("S1Print").font(.title2.bold()); Text("Print PDFs and images on your S1.").font(.subheadline).foregroundStyle(.secondary) }
+                    }
+                    Text(model.message).accessibilityIdentifier("documentStatus")
+                    if model.working { ProgressView("Preparing documents") }
+                }
+                Section("Printer") {
+                    Text(printer.message).font(.subheadline)
+                    Button(printer.scanning ? "Stop scanning" : "Find BLE printers") {
+                        if printer.scanning { printer.stopScan() } else { printer.scan() }
+                    }.disabled(printer.busy)
+                    ForEach(printer.devices, id: \.identifier) { device in
+                        Button { printer.select(device) } label: {
+                            HStack { Text(device.name ?? "S1 printer"); Spacer(); if printer.selectedDevice?.identifier == device.identifier { Image(systemName: "checkmark") } }
+                        }.disabled(printer.busy)
+                    }
+                    if let saved = settings.savedPrinter {
+                        Text("Default printer: \(saved.name)").font(.caption)
+                        if printer.selectedDevice == nil { Text("Waiting for the saved printer to appear nearby.").font(.caption).foregroundStyle(.secondary) }
+                        Button("Forget printer", role: .destructive) { printer.forgetSelection() }.disabled(printer.busy)
+                    }
+                }
+                Section("Printing from other apps") {
+                    Toggle("Print automatically from Share", isOn: $settings.automaticSharePrinting)
+                        .disabled(settings.savedPrinter == nil || printer.busy)
+                    Text("Shared documents use your saved printer and print options. When enabled, printing starts as soon as that printer is found and the document is ready. Otherwise, the Share panel prepares the Print button.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Documents") {
+                    Button("Import PDF or images", systemImage: "doc.badge.plus") { importing = true }.disabled(model.working || printer.busy)
+                    if model.batches.isEmpty { Text("Documents shared from other apps appear here.").foregroundStyle(.secondary) }
+                    ForEach(model.batches) { batch in
+                        Button { model.prepare(batch) } label: {
+                            VStack(alignment: .leading) {
+                                Text(batch.documents.map(\.name).joined(separator: ", ")).lineLimit(2)
+                                Text("\(batch.documents.count) file(s) · \(batch.created.formatted())").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }.disabled(model.working || printer.busy)
+                        .swipeActions { Button("Delete", role: .destructive) { model.remove(batch) }.disabled(printer.busy || model.working) }
+                    }
+                }
+                Section {
+                    DisclosureGroup("Print options") {
+                        Picker("Density", selection: $model.options.density) { Text("Light").tag(0); Text("Medium").tag(1); Text("Dark").tag(2) }
+                        Toggle("Fit to printhead width", isOn: $model.options.fitContentWidth)
+                        Toggle("Label paper", isOn: $model.options.labelPaper)
+                    }.disabled(printer.busy)
+                }
+                if let job = model.job {
+                    Section("Monochrome preview") {
+                        Text("\(job.sourcePages) page(s) · \(job.preview.width) × \(job.preview.height) dots").font(.caption)
+                        VStack(spacing: 0) {
+                            ForEach(Array(model.tiles.enumerated()), id: \.offset) { _, tile in
+                                Image(uiImage: tile).resizable().interpolation(.none).scaledToFit()
+                            }
+                        }.background(.white).accessibilityLabel("Exact monochrome raster sent to the printer")
+                    }
+                }
+            }
+            .navigationTitle("S1Print").navigationBarTitleDisplayMode(.inline)
+            .toolbar { NavigationLink { AboutScreen() } label: { Image(systemName: "info.circle").accessibilityLabel("About S1Print") } }
+            .safeAreaInset(edge: .bottom) {
+                VStack {
+                    Text(printer.message).font(.caption).multilineTextAlignment(.center)
+                        .accessibilityIdentifier("printTransportStatus")
+                    if printer.busy {
+                        ProgressView(); Button("Cancel printing", role: .destructive) { printTask?.cancel(); printer.cancel() }
+                    } else {
+                        Button("Print", systemImage: "printer") {
+                            guard let job = model.job, let device = printer.selectedDevice else { return }
+                            printTask = Task {
+                                do { try await printer.printJob(job, to: device) }
+                                catch { model.message = error.localizedDescription }
+                            }
+                        }.buttonStyle(.borderedProminent).controlSize(.large)
+                            .disabled(model.job == nil || printer.selectedDevice == nil || model.working)
+                        Text(printer.selectedDevice == nil ? "Waiting for your printer. Select it once to save it." : "Review the preview, then print.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }.frame(maxWidth: .infinity).padding().background(.regularMaterial)
+            }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image], allowsMultipleSelection: true) { result in
+                switch result { case .success(let urls): model.importURLs(urls); case .failure(let error): model.message = error.localizedDescription }
+            }
+            .onOpenURL { url in model.importURLs([url], preparePreview: !printer.busy) }
+            .onChange(of: model.options) { _, _ in model.updateOptions() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { model.refresh(); settings.reload(); model.restoreSavedOptions(); printer.startDiscovery() }
+                else if phase == .background { printer.disconnectIfIdle() }
+            }
+            .task { model.refresh(); printer.startDiscovery() }
+        }
+    }
+}
+struct AboutScreen: View {
+    private var licenseText: String {
+        Bundle.main.url(forResource: "LICENSE", withExtension: "txt")
+            .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? "License unavailable"
+    }
+    var body: some View {
+        Form {
+            Section {
+                Image("AppLogo").resizable().scaledToFit().frame(width: 96, height: 96).accessibilityHidden(true)
+                Text("S1Print").font(.title2)
+                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))")
+                Text("Print PDFs and images to the Luck Jingle S1 Bluetooth thermal printer.")
+            }
+            Section("Developed by") {
+                Link("Marvin Quevedo", destination: URL(string: "https://github.com/MarvinQuevedo")!)
+                Link("Source Code", destination: URL(string: "https://github.com/MarvinQuevedo/s1print")!)
+                Link("Report an Issue", destination: URL(string: "https://github.com/MarvinQuevedo/s1print/issues/new")!)
+            }
+            Section("Credits and license") {
+                Link("Protocol notes: fichero-printer by 0xMH", destination: URL(string: "https://github.com/0xMH/fichero-printer")!)
+                Text("Not affiliated with Luck Jingle or Xiamen Lujiang Technology.")
+                NavigationLink("MIT License") { ScrollView { Text(licenseText).padding().textSelection(.enabled) }.navigationTitle("MIT License") }
+            }
+        }.navigationTitle("About S1Print")
+    }
+}

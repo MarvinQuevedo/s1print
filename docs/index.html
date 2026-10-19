@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S1Print — Mac driver for the Luck Jingle S1 Bluetooth thermal printer</title>
+<meta name="description" content="Print receipts, tickets and labels from your Mac to a Luck Jingle S1 mini thermal printer over Bluetooth. Works from Chrome, Safari and any app. Free, open source, notarized. Driver para Mac de la impresora térmica Luck Jingle S1.">
+<meta name="keywords" content="Luck Jingle Mac driver, Luck Jingle S1 macOS, Bluetooth thermal printer Mac, mini thermal printer Mac, 58mm receipt printer macOS, PPS1 printer, impresora térmica bluetooth Mac, driver Luck Jingle Mac">
+<link rel="canonical" href="https://marvinquevedo.github.io/s1print/">
+<link rel="alternate" hreflang="en" href="https://marvinquevedo.github.io/s1print/">
+<link rel="alternate" hreflang="es" href="https://marvinquevedo.github.io/s1print/#es">
+<link rel="icon" href="icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="S1Print — Mac driver for the Luck Jingle S1 thermal printer">
+<meta property="og:description" content="Print receipts, tickets and labels from any Mac app to a Luck Jingle S1 over Bluetooth. Free and open source.">
+<meta property="og:image" content="https://marvinquevedo.github.io/s1print/icon-512.png">
+<meta property="og:url" content="https://marvinquevedo.github.io/s1print/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "S1Print",
+  "description": "Mac driver for the Luck Jingle S1 Bluetooth thermal printer. Adds a driverless printer to macOS so any app can print receipts, tickets and labels.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 13 or later",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "author": {"@type": "Person", "name": "Marvin Quevedo", "url": "https://github.com/MarvinQuevedo"},
+  "license": "https://opensource.org/licenses/MIT",
+  "downloadUrl": "https://github.com/MarvinQuevedo/s1print/releases/latest",
+  "codeRepository": "https://github.com/MarvinQuevedo/s1print",
+  "image": "https://marvinquevedo.github.io/s1print/icon-512.png"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "Why doesn't my Bluetooth thermal printer show up in Printers & Scanners on Mac?",
+     "acceptedAnswer": {"@type": "Answer", "text": "macOS only adds Bluetooth printers that use the Bluetooth printing profile (HCRP). Mini thermal printers like the Luck Jingle S1 only use a serial port profile (SPP), so the Mac pairs them but cannot print without software such as S1Print."}},
+    {"@type": "Question", "name": "Is there a Mac driver for the Luck Jingle S1?",
+     "acceptedAnswer": {"@type": "Answer", "text": "The vendor does not publish one. S1Print is a free, open-source Mac driver that adds the S1 as a normal printer for every app."}},
+    {"@type": "Question", "name": "How do I print a 58 mm receipt from Chrome or Safari to a thermal printer on Mac?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Install S1Print, choose the S1 Bluetooth printer and the 58x600mm paper size. In Chrome set margins to None and turn off headers and footers."}}
+  ]
+}
+</script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#14161a;--muted:#555b66;--line:#dde1e7;--accent:#0a63d6;--accent-fg:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--fg:#eef0f3;--muted:#a3a9b4;--line:#2c3139;--accent:#4c95ff;--accent-fg:#06121f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 16px 64px}
+header{text-align:center;padding:16px 0 8px}
+header img{width:112px;height:112px}
+h1{font-size:clamp(26px,5vw,38px);line-height:1.2;margin:16px 0 10px}
+h2{font-size:24px;margin:44px 0 12px}
+h3{font-size:17px;margin:22px 0 6px}
+p.lead{font-size:18px;color:var(--muted);max-width:640px;margin:0 auto}
+.cta{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:26px 0 6px}
+.btn{display:inline-block;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;border:1px solid var(--line);color:var(--fg);background:var(--card);min-height:44px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.small{font-size:14px;color:var(--muted);text-align:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{background:rgba(127,127,127,.14);padding:1px 6px;border-radius:5px;font-size:.92em}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tablewrap{overflow-x:auto}
+a{color:var(--accent)}
+footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img src="icon.png" alt="S1Print app icon" width="112" height="112">
+  <h1>Mac driver for the Luck Jingle S1 Bluetooth thermal printer</h1>
+  <p class="lead">Print receipts, tickets and labels from Chrome, Safari, Preview or any app on your Mac, straight to your Luck Jingle S1 mini printer over Bluetooth. No vendor driver needed.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/MarvinQuevedo/s1print/releases/latest">Download for Mac</a>
+    <a class="btn" href="https://github.com/MarvinQuevedo/s1print">Source code on GitHub</a>
+    <a class="btn" href="#es">Español</a>
+  </div>
+  <p class="small">Free and open source (MIT) · macOS 13 or later · Signed and notarized by Apple · by <a href="https://github.com/MarvinQuevedo">Marvin Quevedo</a></p>
+</header>
+
+<h2>Is this your problem?</h2>
+<div class="card">
+<ul>
+  <li>Your Mac <strong>pairs the printer</strong> (<code>PPS1_XXXX</code>, often shown with a keyboard icon) but it <strong>never appears in Printers &amp; Scanners</strong>.</li>
+  <li>Luck Jingle has a phone app and A4 drivers, but <strong>no Mac driver for the S1</strong>.</li>
+  <li>You need to print a <strong>58 mm receipt, ticket or label</strong> from a web page or a PDF.</li>
+</ul>
+<p>S1Print adds a normal printer called <strong>S1 Bluetooth</strong> to macOS. Pick it in any print dialog.</p>
+</div>
+
+<h2>Install in three steps</h2>
+<ol>
+  <li><strong>Pair the printer</strong>: System Settings → Bluetooth → connect <code>PPS1_XXXX</code>.</li>
+  <li><strong>Install S1Print</strong>: <a href="https://github.com/MarvinQuevedo/s1print/releases/latest">download the zip</a>, move <strong>S1Print.app</strong> to Applications and open it. Allow Bluetooth when asked.</li>
+  <li><strong>Print</strong>: choose <strong>S1 Bluetooth</strong> and the <strong>58x600mm</strong> paper size (the 58 mm roll).</li>
+</ol>
+
+<h2>What it does</h2>
+<ul>
+  <li>Driverless printing from every app: browsers, Preview, Word, point-of-sale and invoicing web apps.</li>
+  <li>A 58 mm roll size that trims blank paper, 80 mm receipts scaled to fit, label sizes and a custom size.</li>
+  <li>Sharp small text and QR codes: content is rendered at 406 dpi and fitted to the 48 mm head.</li>
+  <li>A menu-bar app with battery and paper status, a test page, and settings for darkness, printer name and sharing.</li>
+  <li>Private by default: only your Mac can send jobs to the printer.</li>
+</ul>
+
+<h2>Compatibility</h2>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Printer</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Luck Jingle S1 (<code>S1_LYiN48D_GY</code>), 56–58 mm paper</td><td>Tested</td></tr>
+    <tr><td>Other Luck Jingle / LuckPrinter models</td><td>Untested — <a href="https://github.com/MarvinQuevedo/s1print/issues/new">tell us your model</a></td></tr>
+    <tr><td>Windows and Linux</td><td>Planned</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Frequently asked questions</h2>
+<h3>Why doesn't my Bluetooth thermal printer show up on my Mac?</h3>
+<p>macOS only adds Bluetooth printers that use the Bluetooth printing profile. Mini thermal printers like the S1 use a serial port profile instead, so the Mac pairs them but cannot print without software such as S1Print.</p>
+<h3>How do I print a receipt from Chrome or Safari?</h3>
+<p>Choose <strong>S1 Bluetooth</strong> and <strong>58x600mm</strong>. In Chrome set Margins to <em>None</em> and turn off headers and footers; in Safari save the size as a preset.</p>
+<h3>The print comes out small.</h3>
+<p>Use the 58 mm roll size, not Letter or A4. A page laid out wider than 58 mm is shrunk by the browser.</p>
+<h3>How does it work?</h3>
+<p>A local IPP Everywhere print server receives each job from macOS, converts it for the 384-dot head and sends it over Bluetooth. Read the <a href="https://github.com/MarvinQuevedo/s1print/blob/main/docs/PAPER.md">technical paper</a>.</p>
+
+<section id="es" lang="es">
+<h2>En español: driver para Mac de la impresora térmica Luck Jingle S1</h2>
+<div class="card">
+<p>Imprima <strong>tickets, facturas y etiquetas</strong> desde Chrome, Safari o cualquier app de su Mac en una mini impresora térmica <strong>Luck Jingle S1</strong> por Bluetooth, sin driver del fabricante. Gratis y de código abierto.</p>
+<p>¿Su Mac empareja la impresora (<code>PPS1_XXXX</code>, con ícono de teclado) pero no aparece en <strong>Impresoras y escáneres</strong>? Eso es lo que S1Print resuelve.</p>
+<ol>
+  <li>Empareje la impresora en Configuración del Sistema → Bluetooth.</li>
+  <li><a href="https://github.com/MarvinQuevedo/s1print/releases/latest">Descargue S1Print</a>, muévalo a Aplicaciones, ábralo y permita el Bluetooth.</li>
+  <li>Imprima eligiendo <strong>S1 Bluetooth</strong> y el tamaño <strong>58x600mm</strong>.</li>
+</ol>
+</div>
+</section>
+
+<footer>
+  S1Print is open source under the MIT License. Not affiliated with Luck Jingle or Xiamen Lujiang Technology Co., Ltd.<br>
+  Developed by <a href="https://github.com/MarvinQuevedo">Marvin Quevedo</a>.
+</footer>
+</main>
+</body>
+</html>

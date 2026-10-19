@@ -151,6 +151,20 @@ func ippOptions() -> PrintOptions {
 
 // MARK: Dispatch
 
+/// Ends a stuck command so it cannot hold the printer lock forever: a status
+/// query gets 40 s, a print job 10 minutes.
+func startWatchdog(seconds: Int) {
+    let timer = DispatchSource.makeTimerSource(queue: .global())
+    timer.schedule(deadline: .now() + .seconds(seconds))
+    timer.setEventHandler {
+        FileHandle.standardError.write(Data("ERROR: gave up after \(seconds) s waiting for the printer\n".utf8))
+        exit(3)
+    }
+    timer.resume()
+    watchdog = timer
+}
+var watchdog: DispatchSourceTimer?
+
 var argv = args
 if argv.isEmpty || argv.first == "bridge" || argv.first?.hasPrefix("-psn") == true {
     Bridge.run()
@@ -158,6 +172,7 @@ if argv.isEmpty || argv.first == "bridge" || argv.first?.hasPrefix("-psn") == tr
 
 if env["IPP_JOB_ID"] != nil || (env["CONTENT_TYPE"] != nil && argv.count == 1 && FileManager.default.fileExists(atPath: argv[0])) {
     // Running as the ippeveprinter print command.
+    startWatchdog(seconds: 600)
     do {
         let url = URL(fileURLWithPath: argv[0])
         // Keep the last job for troubleshooting ("what did macOS send?").
@@ -179,6 +194,7 @@ if env["IPP_JOB_ID"] != nil || (env["CONTENT_TYPE"] != nil && argv.count == 1 &&
 }
 
 let command = argv.removeFirst()
+startWatchdog(seconds: ["status", "raw"].contains(command) ? 40 : 600)
 let (options, address) = parseOptions(&argv)
 do {
     switch command {

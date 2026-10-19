@@ -54,7 +54,14 @@ final class BluetoothTransport: NSObject, IOBluetoothRFCOMMChannelDelegate {
     var address: String { device.addressString ?? "" }
 
     func open() throws {
-        if !device.isConnected() { _ = device.openConnection() }
+        if !device.isConnected() {
+            // Page timeout in 0.625 ms slots: ~5 s. Without one, an unreachable
+            // printer kept openConnection waiting for minutes.
+            _ = device.openConnection(nil, withPageTimeout: 8000, authenticationRequired: false)
+            guard device.isConnected() || device.openConnection(nil, withPageTimeout: 8000, authenticationRequired: false) == kIOReturnSuccess else {
+                throw TransportError.openFailed(kIOReturnTimeout)
+            }
+        }
         var channelID: BluetoothRFCOMMChannelID = 1
         let spp = IOBluetoothSDPUUID(uuid16: 0x1101)
         var record = device.getServiceRecord(for: spp)

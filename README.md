@@ -26,14 +26,8 @@ inside the app, macOS applies the app's Bluetooth permission.
 ## Install
 
 Download `S1Print-<version>.zip` from [Releases](https://github.com/MarvinQuevedo/s1print/releases),
-unzip it and move **S1Print.app** to Applications. The build is signed but not
-notarized yet, so macOS blocks it the first time ("No se abrió S1Print" / "S1Print
-Not Opened"). Click **Done**, then open System Settings → Privacy & Security, scroll
-down and click **Open Anyway** next to S1Print. Or remove the download flag:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/S1Print.app
-```
+unzip it and move **S1Print.app** to Applications. Releases from 0.3.4 on are
+signed with a Developer ID and notarized by Apple, so macOS opens them normally.
 
 From source:
 

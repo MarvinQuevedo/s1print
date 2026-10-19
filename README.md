@@ -8,7 +8,8 @@ the S1; s1print makes it show up as a normal printer on the Mac, so you can
 print from Chrome, Preview or any app.
 
 Status: works on macOS 13+ with an S1 (firmware V3.0.3). Linux and Windows are
-planned; the core (`S1Kit`) has no Apple dependencies.
+planned: see [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md). The core (`S1Kit`)
+has no Apple dependencies.
 
 ## How it works
 

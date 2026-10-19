@@ -6,6 +6,9 @@ on:
   pull_request:
     paths: ['native/**', 'rust/**', 'scripts/build-*', 'docs/NATIVE_PLATFORMS.md', '.github/workflows/native-platforms.yml']
   workflow_dispatch:
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

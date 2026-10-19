@@ -26,7 +26,7 @@ public sealed class MainForm : Form
     public MainForm()
     {
         Text = "S1Print"; Width = 740; Height = 820; MinimumSize = new Size(580, 600);
-        printer = new(() => settings); queue = new(printer); server = new(queue, () => settings.Print);
+        printer = new(() => settings, (id, token) => OnUi(() => BluetoothPrinter.AcquireDeviceAsync(id, token))); queue = new(printer); server = new(queue, () => settings.Print);
         queue.StatusChanged += message => { Settings.Log(message); if (!IsDisposed && IsHandleCreated) BeginInvoke(() => SetStatus(message)); };
         var layout = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(16) };
         var viewport = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.DarkGray }; viewport.Controls.Add(preview);
@@ -56,6 +56,13 @@ public sealed class MainForm : Form
         tray = new NotifyIcon { Icon = SystemIcons.Application, Text = "S1Print", Visible = true, ContextMenuStrip = menu }; tray.DoubleClick += (_, _) => { Show(); Activate(); };
         FormClosing += (_, e) => { if (!exit) { e.Cancel = true; Hide(); } };
         Shown += async (_, _) => { await Run(async () => { await server.StartAsync(lifetime.Token); await RefreshDevices(); SetStatus("Ready. Closing this window keeps the printer bridge running in the tray."); }); };
+    }
+    private Task<T> OnUi<T>(Func<Task<T>> work)
+    {
+        if (!InvokeRequired) return work();
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        BeginInvoke(async () => { try { completion.SetResult(await work()); } catch (Exception e) { completion.SetException(e); } });
+        return completion.Task;
     }
     private CancellationToken Token => operation?.Token ?? lifetime.Token;
     private void SetStatus(string message) { status.Text = message; Settings.Log(message); }

@@ -8,8 +8,11 @@ using S1Print.Engine;
 
 namespace S1Print.Windows;
 public sealed record PairedPrinter(string Id, string Name) { public override string ToString() => Name; }
-public sealed class BluetoothPrinter(Func<Settings> settings) : IPrinterBackend
+public delegate Task<BluetoothDevice?> BluetoothDeviceFactory(string id, CancellationToken token);
+public sealed class BluetoothPrinter(Func<Settings> settings, BluetoothDeviceFactory deviceFactory) : IPrinterBackend
 {
+    // Microsoft requires device acquisition on the UI thread; the injected factory dispatches there.
+    public static async Task<BluetoothDevice?> AcquireDeviceAsync(string id, CancellationToken token) => await BluetoothDevice.FromIdAsync(id).AsTask(token);
     private readonly SemaphoreSlim gate = new(1, 1);
     public static async Task<IReadOnlyList<PairedPrinter>> PairedAsync()
     {
@@ -34,10 +37,10 @@ public sealed class BluetoothPrinter(Func<Settings> settings) : IPrinterBackend
             writer = new DataWriter(socket.OutputStream);
             readTask = ReadLoop();
         }
-        public static async Task<Connection> Open(string id, CancellationToken token)
+        public static async Task<Connection> Open(string id, CancellationToken token, BluetoothDeviceFactory deviceFactory)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(8));
-            var device = await BluetoothDevice.FromIdAsync(id).AsTask(timeout.Token) ?? throw new IOException("Cannot access printer. Pair it in Windows Bluetooth settings.");
+            var device = await deviceFactory(id, timeout.Token) ?? throw new IOException("Cannot access printer. Pair it in Windows Bluetooth settings.");
             RfcommDeviceService? service = null; var socket = new StreamSocket();
             try
             {
@@ -102,7 +105,7 @@ public sealed class BluetoothPrinter(Func<Settings> settings) : IPrinterBackend
             reader.Dispose(); writer.Dispose(); service.Dispose(); device.Dispose(); stopping.Dispose();
         }
     }
-    private async Task<Connection> Open(CancellationToken token) => await Connection.Open(settings().DeviceId ?? throw new IOException("Select a paired printer first"), token);
+    private async Task<Connection> Open(CancellationToken token) => await Connection.Open(settings().DeviceId ?? throw new IOException("Select a paired printer first"), token, deviceFactory);
     public async Task<string> StatusAsync(CancellationToken token)
     {
         await gate.WaitAsync(token);
@@ -127,7 +130,7 @@ public sealed class BluetoothPrinter(Func<Settings> settings) : IPrinterBackend
         await gate.WaitAsync(token);
         try
         {
-            await using var connection = deviceId is null ? await Open(token) : await Connection.Open(deviceId, token);
+            await using var connection = deviceId is null ? await Open(token) : await Connection.Open(deviceId, token, deviceFactory);
             var raw = await connection.Query(NativeCore.Command("status"), 1, token); var state = NativeCore.Status(raw[0]);
             if (!state.GetProperty("ready").GetBoolean() || state.GetProperty("printing").GetBoolean()) throw new IOException(state.GetProperty("description").GetString());
             for (int copy = 0; copy < copies; copy++)

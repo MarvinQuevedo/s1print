@@ -87,6 +87,12 @@ scripts/s1print print ticket.pdf --density 2
 scripts/s1print preview ticket.pdf out.png   # what would be printed, no Bluetooth
 ```
 
+## How it works
+
+[docs/PAPER.md](docs/PAPER.md) describes the whole driver: reverse engineering,
+protocol, architecture, Bluetooth transport, print pipeline, and every failure
+found on paper with its fix.
+
 ## Protocol
 
 See [docs/PROTOCOL.md](docs/PROTOCOL.md). Thanks to

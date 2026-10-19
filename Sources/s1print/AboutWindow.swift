@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+/// Shows a window of this menu-bar (accessory) app in front of other apps.
+/// On recent macOS, `activate(ignoringOtherApps:)` is ignored for such apps and
+/// the window opens behind everything, so it looks as if nothing happened.
+func bringToFront(_ window: NSWindow?) {
+    guard let window else { return }
+    if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+    window.level = .floating
+    window.orderFrontRegardless()
+    window.makeKey()
+    // Back to a normal window once it is visible, so it does not float over everything.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { window.level = .normal }
+}
+
 /// The About window: what the app is, who made it, where the code lives.
 enum AboutWindow {
     private static var window: NSWindow?
@@ -18,8 +31,7 @@ enum AboutWindow {
             w.center()
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        bringToFront(window)
     }
 }
 

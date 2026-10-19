@@ -63,8 +63,7 @@ enum SettingsWindow {
             w.center()
             window = w
         }
-        NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        bringToFront(window)
     }
 }
 
@@ -170,7 +169,9 @@ private struct SettingsView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
-        .frame(width: 620)
+        // A grouped Form scrolls and has no height of its own: without a fixed
+        // height the window opened as a 73-pt strip.
+        .frame(width: 620, height: 760)
         .onAppear { nameDraft = model.settings.serviceName }
     }
 

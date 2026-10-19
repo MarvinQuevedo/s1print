@@ -62,6 +62,13 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Opening the app again (Finder, Spotlight, Launchpad) while it already runs
+    /// shows Settings; a menu-bar app has no other window to bring back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openSettings()
+        return false
+    }
+
     func menuWillOpen(_ menu: NSMenu) {
         if #available(macOS 13.0, *) { loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off }
         stateItem.title = server?.isRunning == true

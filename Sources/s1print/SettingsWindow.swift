@@ -70,6 +70,7 @@ enum SettingsWindow {
 private struct SettingsView: View {
     @ObservedObject var model: AppModel
     @State private var nameDraft = ""
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -124,11 +125,22 @@ private struct SettingsView: View {
 
                 Section("macOS") {
                     LabeledContent {
-                        TextField("", text: $nameDraft)
-                            .frame(width: 200)
-                            .onSubmit(commitName)
+                        HStack(spacing: 8) {
+                            TextField("", text: $nameDraft)
+                                .frame(width: 200)
+                                .focused($nameFocused)
+                                .onSubmit(commitName)
+                            if nameChanged {
+                                Button("Rename", action: commitName)
+                                    .keyboardShortcut(.defaultAction)
+                            }
+                        }
+                        .onChange(of: nameFocused) { focused in
+                            // Apply when the user leaves the field, not only on Return.
+                            if !focused { commitName() }
+                        }
                     } label: {
-                        row("Printer name", "Shown in every print dialog. Press Return to apply")
+                        row("Printer name", "Shown in every print dialog")
                     }
                     Toggle(isOn: Binding(
                         get: { model.queueInstalled },
@@ -173,6 +185,11 @@ private struct SettingsView: View {
         // height the window opened as a 73-pt strip.
         .frame(width: 620, height: 760)
         .onAppear { nameDraft = model.settings.serviceName }
+    }
+
+    private var nameChanged: Bool {
+        let name = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !name.isEmpty && name != model.settings.serviceName
     }
 
     private func commitName() {

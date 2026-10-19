@@ -140,7 +140,11 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // also shows up in CUPS as a network destination named like our queue.
         if !settings.shareOnNetwork { args += ["-n", "localhost", "-r", "off"] }
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
-        args.append(settings.serviceName)
+        // When shared, this Mac would list its own advert next to the local queue
+        // under the same name; give the advert the Mac's name to tell them apart.
+        args.append(settings.shareOnNetwork
+            ? "\(settings.serviceName) @ \(Host.current().localizedName ?? "Mac")"
+            : settings.serviceName)
         p.arguments = args
         if let handle = try? FileHandle(forWritingTo: log) { p.standardOutput = handle; p.standardError = handle }
         p.terminationHandler = { [weak self] _ in

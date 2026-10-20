@@ -26,6 +26,7 @@ struct Options {
     fit_content_width: Option<bool>,
     trim_bottom: Option<bool>,
     label_paper: bool,
+    rows_per_block: Option<usize>,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -35,6 +36,7 @@ impl Default for Options {
             fit_content_width: None,
             trim_bottom: None,
             label_paper: false,
+            rows_per_block: None,
         }
     }
 }
@@ -100,6 +102,9 @@ fn job(pages: Vec<GrayPage>, o: Options) -> Result<Value, String> {
             fit_content_width: o.fit_content_width.unwrap_or(true),
             trim_bottom: o.trim_bottom.unwrap_or(!o.label_paper),
             label_paper: o.label_paper,
+            rows_per_block: o
+                .rows_per_block
+                .unwrap_or(PrintOptions::default().rows_per_block),
             ..Default::default()
         },
     )?;
@@ -256,6 +261,42 @@ mod tests {
             let v: Value = serde_json::from_str(&process_json(s)).unwrap();
             assert_eq!(v["ok"], false);
         }
+    }
+    #[test]
+    fn rows_per_block_sends_a_tall_page_as_one_raster_command() {
+        let (w, h) = (384usize, 600usize);
+        let pixels = vec![0u8; w * h];
+        let build = |rows: Option<usize>| -> Vec<Vec<u8>> {
+            let mut options = json!({"fitContentWidth":false,"trimBottom":false});
+            if let Some(rows) = rows {
+                options["rowsPerBlock"] = json!(rows);
+            }
+            let request = json!({"op":"build","pages":[{"width":w,"height":h,"dpi":203,"pixels":B64.encode(&pixels)}],
+                "options":options});
+            let result: Value = serde_json::from_str(&process_json(&request.to_string())).unwrap();
+            result["chunks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| B64.decode(c.as_str().unwrap()).unwrap())
+                .collect()
+        };
+        let rasters = |c: &[Vec<u8>]| {
+            c.iter()
+                .filter(|c| c.starts_with(&[0x1d, 0x76, 0x30, 0]))
+                .count()
+        };
+        let (blocks, single) = (build(None), build(Some(65535)));
+        assert!(rasters(&blocks) > 1);
+        assert_eq!(rasters(&single), 1);
+        let raster = single
+            .iter()
+            .find(|c| c.starts_with(&[0x1d, 0x76, 0x30, 0]))
+            .unwrap();
+        assert_eq!(
+            raster[6] as usize | (raster[7] as usize) << 8,
+            (raster.len() - 8) / 48
+        );
     }
     #[test]
     fn c_abi_allocates_and_frees_an_error_response() {

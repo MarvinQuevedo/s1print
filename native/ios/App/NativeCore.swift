@@ -14,7 +14,10 @@ struct PrintOptions: Codable, Equatable {
     var fitContentWidth = true
     var labelPaper = false
     var trimBottom: Bool { !labelPaper }
-    enum CodingKeys: CodingKey { case density, fitContentWidth, labelPaper, trimBottom }
+    /// One GS v 0 command per page, as the vendor SDK sends it. Over BLE the printer stops at
+    /// every block boundary while the next block arrives, which left a blank gap every 255 rows.
+    var rowsPerBlock: Int { 65535 }
+    enum CodingKeys: CodingKey { case density, fitContentWidth, labelPaper, trimBottom, rowsPerBlock }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +31,7 @@ struct PrintOptions: Codable, Equatable {
         try values.encode(fitContentWidth, forKey: .fitContentWidth)
         try values.encode(labelPaper, forKey: .labelPaper)
         try values.encode(trimBottom, forKey: .trimBottom)
+        try values.encode(rowsPerBlock, forKey: .rowsPerBlock)
     }
 }
 struct PrintJob: Decodable {

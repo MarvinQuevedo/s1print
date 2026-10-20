@@ -106,6 +106,31 @@ In-memory channel tests (no hardware), in `native/ios/Tests`:
 4. Choose the default from: full ticket, no white bands, no power-off, kB/s.
    Record results and the decision in `docs/IOS.md`.
 
+## Outcome (20-Oct-2026)
+
+Measured on «iPhone de Marvin» with the S1 (`S1_LYiN48D_GY`):
+
+| Attempt | Result |
+|---|---|
+| `windowed`, FF03 read as credits (`01 NN` adds NN, `02 LL HH` sets the packet size) | The job finishes (80 103 bytes in 23.9 s). Blank bands about every 32 mm |
+| Blank rows sent as `ESC J` feeds inside the raster stream | Worse. The S1 feeds less than asked, so lines overlap. Reverted |
+| `flow`, ignoring FF03 credits | The printer is overrun and resets (blue light, power off). Credits are real |
+| One `GS v 0` command per page (`rowsPerBlock` = 65535) | Clean ticket |
+
+The bands came from the 255-row blocks, not from the link rate. The vendor
+SDK sends a page as one raster command; see `docs/LUCKPRINTER_SDK.md`.
+
+Defaults:
+- `windowed` stays the default strategy. With credits announced, it is
+  credit-gated.
+- The iOS app asks the Rust core for one block per page. Other platforms
+  keep 255-row blocks.
+
+Still open:
+- Abort on the `FF01` `FF xx` error replies (out of paper, cover open,
+  overheated, low battery), as the vendor app does.
+- Decide whether to hide the diagnostics strategy picker.
+
 ## Out of scope
 
 The Rust raster/protocol bytes (`s1-core`), Android, Windows and macOS

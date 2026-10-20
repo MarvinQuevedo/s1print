@@ -62,6 +62,7 @@ pub fn run(v: &Value) -> Value {
                 max_blank_rows: number(o, "maxBlankRows", 160),
                 fit_content_width: o["fitContentWidth"].as_bool().unwrap_or(false),
                 rows_per_block: number(o, "rowsPerBlock", 255),
+                blank_rows_as_feed: number(o, "blankRowsAsFeed", 0),
             };
             json!({"chunks":build_job(&pages,&options).unwrap(),"sharedInkColumns":GrayPage::shared_ink_columns(&pages,6)})
         }

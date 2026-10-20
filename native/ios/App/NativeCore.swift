@@ -14,7 +14,10 @@ struct PrintOptions: Codable, Equatable {
     var fitContentWidth = true
     var labelPaper = false
     var trimBottom: Bool { !labelPaper }
-    enum CodingKeys: CodingKey { case density, fitContentWidth, labelPaper, trimBottom }
+    /// BLE delivers far less than the print speed; blank runs of this many rows travel as a
+    /// paper feed so the head is not starved mid-ticket (white bands, docs/PAPER.md).
+    var blankRowsAsFeed: Int { 4 }
+    enum CodingKeys: CodingKey { case density, fitContentWidth, labelPaper, trimBottom, blankRowsAsFeed }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +31,7 @@ struct PrintOptions: Codable, Equatable {
         try values.encode(fitContentWidth, forKey: .fitContentWidth)
         try values.encode(labelPaper, forKey: .labelPaper)
         try values.encode(trimBottom, forKey: .trimBottom)
+        try values.encode(blankRowsAsFeed, forKey: .blankRowsAsFeed)
     }
 }
 struct PrintJob: Decodable {

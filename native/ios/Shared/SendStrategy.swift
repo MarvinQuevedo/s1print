@@ -1,4 +1,5 @@
 import Foundation
+import CoreBluetooth
 
 /// How raster data is paced onto the BLE link. Stored in the App Group so the app and the share
 /// extension agree; the picker lives in the main app (diagnostics).
@@ -99,4 +100,70 @@ struct SendWindow: Equatable {
         let silent = now - max(lastNotification ?? -.infinity, lastSend ?? -.infinity)
         return silent >= silenceTimeout ? .go : .wait(timeout: silenceTimeout - silent)
     }
+}
+
+/// Flow control announced by the printer on FF03. It is a credit channel, never a reply channel:
+/// `01 NN` grants NN packet credits (cumulative), `02 LL HH` sets the maximum packet payload
+/// (little-endian). Anything else is ignored. Pure, so it is testable without Core Bluetooth.
+struct FlowControl: Equatable {
+    enum Change: Equatable { case credits(Int), maxPayload(Int), ignored }
+
+    private(set) var credits = 0
+    private(set) var maxPayload: Int?
+    /// At least one `01 NN` message was seen: the printer uses credit flow control.
+    private(set) var creditsAnnounced = false
+
+    @discardableResult
+    mutating func apply(_ data: Data) -> Change {
+        let bytes = [UInt8](data)
+        if bytes.count == 2, bytes[0] == 0x01 {
+            credits = min(credits + Int(bytes[1]), 1 << 20)
+            creditsAnnounced = true
+            return .credits(Int(bytes[1]))
+        }
+        if bytes.count == 3, bytes[0] == 0x02 {
+            let size = Int(bytes[1]) | Int(bytes[2]) << 8
+            guard size > 0 else { return .ignored }
+            maxPayload = size
+            return .maxPayload(size)
+        }
+        return .ignored
+    }
+
+    /// Spend one credit for one packet; false (and nothing spent) when none is left.
+    mutating func consume() -> Bool {
+        guard credits > 0 else { return false }
+        credits -= 1
+        return true
+    }
+
+    /// May a credit-gated packet go out now? Never with zero credits.
+    func next(canSend: Bool) -> SendWindow.Decision {
+        credits > 0 && canSend ? .go : .wait(timeout: nil)
+    }
+
+    /// The transport limit, further capped by the printer's announced payload size.
+    func packetSize(transportLimit: Int) -> Int {
+        guard let maxPayload else { return transportLimit }
+        return min(transportLimit, maxPayload)
+    }
+}
+
+/// Routes notifications: FF01 replies go to `received`; FF03 only ever updates `flow`.
+/// This is the seam that keeps flow-control bytes out of the status read and the completion check.
+struct BLEInbox: Equatable {
+    enum Route: Equatable { case reply, flow(FlowControl.Change), ignored }
+
+    private(set) var received = Data()
+    private(set) var flow = FlowControl()
+
+    mutating func ingest(_ data: Data, from uuid: CBUUID, profile: BLEUARTProfile) -> Route {
+        if profile.isReplySource(uuid) { received.append(data); return .reply }
+        if profile.isFlowSource(uuid) { return .flow(flow.apply(data)) }
+        return .ignored
+    }
+
+    mutating func clearReplies() { received = Data() }
+    mutating func resetFlow() { flow = FlowControl() }
+    mutating func consumeCredit() -> Bool { flow.consume() }
 }

@@ -158,19 +158,118 @@ final class SendWindowTests: XCTestCase {
 }
 
 final class NotificationSourceTests: XCTestCase {
-    func testFF03CountsLikeFF01() {
+    func testFF03IsAFlowSourceNotAReplySource() {
         let p = BLEUARTProfile.ff00
-        XCTAssertTrue(p.isNotificationSource(CBUUID(string: "FF01")))
-        XCTAssertTrue(p.isNotificationSource(CBUUID(string: "FF03")))
-        XCTAssertTrue(p.isNotificationSource(CBUUID(string: "0000FF03-0000-1000-8000-00805F9B34FB")))
-        XCTAssertFalse(p.isNotificationSource(CBUUID(string: "FF02")))
+        XCTAssertTrue(p.isReplySource(CBUUID(string: "FF01")))
+        XCTAssertFalse(p.isReplySource(CBUUID(string: "FF03")))
+        XCTAssertTrue(p.isFlowSource(CBUUID(string: "FF03")))
+        XCTAssertTrue(p.isFlowSource(CBUUID(string: "0000FF03-0000-1000-8000-00805F9B34FB")))
+        XCTAssertFalse(p.isFlowSource(CBUUID(string: "FF01")))
+        XCTAssertFalse(p.isReplySource(CBUUID(string: "FF02")))
+        XCTAssertFalse(p.isFlowSource(CBUUID(string: "FF02")))
     }
 
-    func testUART18F0HasNoAuxiliarySource() {
+    func testUART18F0HasNoFlowSource() {
         let p = BLEUARTProfile.uart18f0
-        XCTAssertTrue(p.isNotificationSource(CBUUID(string: "2AF0")))
-        XCTAssertFalse(p.isNotificationSource(CBUUID(string: "FF03")))
-        XCTAssertFalse(p.isNotificationSource(CBUUID(string: "2AF1")))
+        XCTAssertTrue(p.isReplySource(CBUUID(string: "2AF0")))
+        XCTAssertFalse(p.isFlowSource(CBUUID(string: "FF03")))
+        XCTAssertFalse(p.isReplySource(CBUUID(string: "FF03")))
+        XCTAssertFalse(p.isReplySource(CBUUID(string: "2AF1")))
+    }
+}
+
+final class FlowControlTests: XCTestCase {
+    func testCreditGrantsAreCumulative() {
+        var f = FlowControl()
+        XCTAssertFalse(f.creditsAnnounced)
+        XCTAssertEqual(f.apply(Data([0x01, 0x05])), .credits(5))
+        XCTAssertEqual(f.credits, 5)
+        XCTAssertTrue(f.creditsAnnounced)
+        f.apply(Data([0x01, 0x03]))
+        XCTAssertEqual(f.credits, 8)
+    }
+
+    func testMaxPayloadIsLittleEndian() {
+        var f = FlowControl()
+        XCTAssertEqual(f.apply(Data([0x02, 0xC8, 0x00])), .maxPayload(200))
+        XCTAssertEqual(f.maxPayload, 200)
+        f.apply(Data([0x02, 0x00, 0x01]))
+        XCTAssertEqual(f.maxPayload, 256)
+        XCTAssertFalse(f.creditsAnnounced)
+    }
+
+    func testMalformedShortAndUnknownMessagesAreIgnored() {
+        var f = FlowControl()
+        for bytes: [UInt8] in [[], [0x01], [0x02], [0x02, 0xC8], [0x01, 0x05, 0x00], [0x02, 0xC8, 0x00, 0x00],
+                               [0x03, 0x01], [0xAA], [0x00, 0x05], [0x02, 0x00, 0x00]] {
+            XCTAssertEqual(f.apply(Data(bytes)), .ignored, "\(bytes)")
+        }
+        XCTAssertEqual(f, FlowControl())
+    }
+
+    func testGateNeverSendsWithZeroCreditsAndResumesAfterGrant() {
+        var f = FlowControl()
+        XCTAssertEqual(f.next(canSend: true), .wait(timeout: nil))
+        XCTAssertFalse(f.consume())
+        f.apply(Data([0x01, 0x02]))
+        for _ in 0..<2 {
+            XCTAssertEqual(f.next(canSend: true), .go)
+            XCTAssertTrue(f.consume())
+        }
+        XCTAssertEqual(f.credits, 0)
+        XCTAssertEqual(f.next(canSend: true), .wait(timeout: nil))
+        XCTAssertFalse(f.consume())
+        XCTAssertEqual(f.credits, 0)
+        f.apply(Data([0x01, 0x01]))
+        XCTAssertEqual(f.next(canSend: true), .go)
+        XCTAssertEqual(f.next(canSend: false), .wait(timeout: nil), "Core Bluetooth readiness still gates")
+    }
+
+    func testPacketSizeIsCappedByAnnouncedPayload() {
+        var f = FlowControl()
+        XCTAssertEqual(f.packetSize(transportLimit: 237), 237)
+        f.apply(Data([0x02, 0xC8, 0x00]))
+        XCTAssertEqual(f.packetSize(transportLimit: 237), 200)
+        XCTAssertEqual(f.packetSize(transportLimit: 100), 100)
+    }
+}
+
+@MainActor final class BLEInboxTests: XCTestCase {
+    private let ff01 = CBUUID(string: "FF01"), ff03 = CBUUID(string: "FF03")
+
+    func testFF03NeverReachesTheReplyBufferOrSatisfiesTheStatusRead() {
+        var inbox = BLEInbox()
+        let profile = BLEUARTProfile.ff00
+        XCTAssertEqual(inbox.ingest(Data([0x01, 0x05]), from: ff03, profile: profile), .flow(.credits(5)))
+        XCTAssertEqual(inbox.ingest(Data([0x02, 0xC8, 0x00]), from: ff03, profile: profile), .flow(.maxPayload(200)))
+        XCTAssertEqual(inbox.ingest(Data([0xAA]), from: ff03, profile: profile), .flow(.ignored))
+        XCTAssertTrue(inbox.received.isEmpty)
+        // The status wait predicate from PrintExchange.run.
+        XCTAssertFalse(!inbox.received.isEmpty)
+        XCTAssertFalse(PrintExchange.isCompletion(inbox.received), "a lone 0xAA on FF03 is not completion")
+        XCTAssertEqual(inbox.flow.credits, 5)
+        XCTAssertEqual(inbox.flow.maxPayload, 200)
+        // FF01 still delivers replies.
+        XCTAssertEqual(inbox.ingest(Data([0x00]), from: ff01, profile: profile), .reply)
+        XCTAssertEqual(inbox.received, Data([0x00]))
+        XCTAssertEqual(inbox.flow.credits, 5, "replies do not touch credits")
+    }
+
+    func testClearRepliesKeepsFlowAndResetFlowKeepsReplies() {
+        var inbox = BLEInbox()
+        _ = inbox.ingest(Data([0x01, 0x04]), from: ff03, profile: .ff00)
+        _ = inbox.ingest(Data("OK".utf8), from: ff01, profile: .ff00)
+        inbox.clearReplies()
+        XCTAssertTrue(inbox.received.isEmpty)
+        XCTAssertEqual(inbox.flow.credits, 4)
+        inbox.resetFlow()
+        XCTAssertEqual(inbox.flow, FlowControl())
+    }
+
+    func testUnknownCharacteristicIsIgnored() {
+        var inbox = BLEInbox()
+        XCTAssertEqual(inbox.ingest(Data([1, 2]), from: CBUUID(string: "FF02"), profile: .ff00), .ignored)
+        XCTAssertTrue(inbox.received.isEmpty)
     }
 }
 

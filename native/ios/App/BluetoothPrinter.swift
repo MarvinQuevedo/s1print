@@ -11,6 +11,9 @@ enum BLEUARTProfile: CaseIterable {
     /// Second notify characteristic some firmware also answers on (FF03 next to FF01).
     var auxNotifyUUID: CBUUID? { self == .ff00 ? CBUUID(string: "FF03") : nil }
 
+    /// Replies on the primary notify characteristic and on the optional auxiliary one count the same.
+    func isNotificationSource(_ uuid: CBUUID) -> Bool { uuid == notifyUUID || uuid == auxNotifyUUID }
+
     static func matching(_ uuid: CBUUID) -> BLEUARTProfile? {
         // CoreBluetooth can report Bluetooth base UUIDs in either short or full form.
         allCases.first { $0.serviceUUID == uuid }
@@ -26,6 +29,7 @@ enum BLEUARTProfile: CaseIterable {
     @Published private(set) var selectedDevice: CBPeripheral?
     private let settings: PrintSettings
     private var discoveryRequested = false
+    private var activeProfile: BLEUARTProfile?
     var isBluetoothReady: Bool { central.state == .poweredOn }
     private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
@@ -130,7 +134,7 @@ enum BLEUARTProfile: CaseIterable {
         let reply = replyWaiter; replyWaiter = nil; replyPredicate = nil
         connect?.resume(throwing: error); write?.resume(throwing: error)
         flow?.resume(throwing: error); reply?.resume(throwing: error)
-        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil
+        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil; activeProfile = nil
         if let peripheral, peripheral.state != .disconnected {
             disconnecting = true; central.cancelPeripheralConnection(peripheral)
         } else {
@@ -146,7 +150,7 @@ enum BLEUARTProfile: CaseIterable {
             throw PrintFailure("The previous printer is disconnecting. Try again shortly.")
         }
         peripheral = device; device.delegate = self
-        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil
+        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil; activeProfile = nil
         stopScan()
         try await withCheckedThrowingContinuation { continuation in
             connectWaiter = continuation
@@ -194,7 +198,7 @@ enum BLEUARTProfile: CaseIterable {
               let notify = characteristics.first(where: { $0.uuid == profile.notifyUUID && (!$0.properties.intersection([.notify, .indicate]).isEmpty) }) else {
             fail(PrintFailure("Unsupported BLE write/notification characteristics")); return
         }
-        writeCharacteristic = write; notifyCharacteristic = notify
+        writeCharacteristic = write; notifyCharacteristic = notify; activeProfile = profile
         auxNotifyCharacteristic = profile.auxNotifyUUID.flatMap { uuid in
             characteristics.first { $0.uuid == uuid && !$0.properties.intersection([.notify, .indicate]).isEmpty }
         }
@@ -304,7 +308,7 @@ enum BLEUARTProfile: CaseIterable {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard self.peripheral === peripheral else { return }
         if let error { fail(error); return }
-        guard characteristic === notifyCharacteristic || characteristic === auxNotifyCharacteristic,
+        guard activeProfile?.isNotificationSource(characteristic.uuid) == true,
               let data = characteristic.value else { return }
         trace(BLETrace.notification(from: characteristic.uuid.uuidString, data))
         window.noteNotification(at: now)

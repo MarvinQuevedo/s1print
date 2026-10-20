@@ -26,7 +26,6 @@ struct Options {
     fit_content_width: Option<bool>,
     trim_bottom: Option<bool>,
     label_paper: bool,
-    blank_rows_as_feed: usize,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -36,7 +35,6 @@ impl Default for Options {
             fit_content_width: None,
             trim_bottom: None,
             label_paper: false,
-            blank_rows_as_feed: 0,
         }
     }
 }
@@ -94,27 +92,17 @@ fn job(pages: Vec<GrayPage>, o: Options) -> Result<Value, String> {
             return Err("processed job exceeds 32 Mi pixels".into());
         }
     }
-    let options = PrintOptions {
-        density: o.density,
-        dither: mode,
-        fit_content_width: o.fit_content_width.unwrap_or(true),
-        trim_bottom: o.trim_bottom.unwrap_or(!o.label_paper),
-        label_paper: o.label_paper,
-        ..Default::default()
-    };
-    // The preview reads raster rows, so it is always built from the feed-free job.
-    let chunks = build_job(&pages, &options)?;
-    let sent = if o.blank_rows_as_feed > 0 {
-        build_job(
-            &pages,
-            &PrintOptions {
-                blank_rows_as_feed: o.blank_rows_as_feed,
-                ..options.clone()
-            },
-        )?
-    } else {
-        chunks.clone()
-    };
+    let chunks = build_job(
+        &pages,
+        &PrintOptions {
+            density: o.density,
+            dither: mode,
+            fit_content_width: o.fit_content_width.unwrap_or(true),
+            trim_bottom: o.trim_bottom.unwrap_or(!o.label_paper),
+            label_paper: o.label_paper,
+            ..Default::default()
+        },
+    )?;
     if !chunks.iter().any(|c| c.starts_with(&[0x1d, 0x76, 0x30, 0])) {
         return Err("document has no printable content".into());
     }
@@ -125,7 +113,7 @@ fn job(pages: Vec<GrayPage>, o: Options) -> Result<Value, String> {
         }
     }
     Ok(
-        json!({"chunks":sent.iter().map(|c|B64.encode(c)).collect::<Vec<_>>(),
+        json!({"chunks":chunks.iter().map(|c|B64.encode(c)).collect::<Vec<_>>(),
         "preview":{"width":384,"height":bits.len()/48,"rows":B64.encode(bits)},
         "sourcePages":pages.len()}),
     )
@@ -268,56 +256,6 @@ mod tests {
             let v: Value = serde_json::from_str(&process_json(s)).unwrap();
             assert_eq!(v["ok"], false);
         }
-    }
-    #[test]
-    fn blank_rows_travel_as_feeds_and_print_the_same_rows() {
-        // Two ink bands of 10 rows around 40 blank rows, at the head width (406 dpi in, 384 dots out).
-        let (w, h) = (768usize, 120usize);
-        let mut pixels = vec![255u8; w * h];
-        for row in (0..20).chain(100..120) {
-            pixels[row * w..(row + 1) * w].fill(0);
-        }
-        let build = |feed: usize| -> Value {
-            let request = json!({"op":"build","pages":[{"width":w,"height":h,"pixels":B64.encode(&pixels)}],
-                "options":{"fitContentWidth":false,"trimBottom":false,"blankRowsAsFeed":feed}});
-            serde_json::from_str(&process_json(&request.to_string())).unwrap()
-        };
-        let (plain, fed) = (build(0), build(4));
-        assert_eq!(plain["preview"], fed["preview"]);
-        let bytes = |v: &Value| -> Vec<Vec<u8>> {
-            v["chunks"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|c| B64.decode(c.as_str().unwrap()).unwrap())
-                .collect()
-        };
-        let total = |c: &[Vec<u8>]| c.iter().map(Vec::len).sum::<usize>();
-        let (plain, fed) = (bytes(&plain), bytes(&fed));
-        assert_eq!(plain.len(), fed.len());
-        assert!(total(&fed) + 30 * 48 < total(&plain));
-        // Replaying both jobs row by row, feeds as blank rows, gives the same paper.
-        let rows = |chunks: &[Vec<u8>]| -> Vec<u8> {
-            let mut out = Vec::new();
-            for c in chunks {
-                let mut i = 0;
-                while i < c.len() {
-                    if c[i..].starts_with(&[0x1d, 0x76, 0x30, 0]) {
-                        let n = (c[i + 4] as usize | (c[i + 5] as usize) << 8)
-                            * (c[i + 6] as usize | (c[i + 7] as usize) << 8);
-                        out.extend_from_slice(&c[i + 8..i + 8 + n]);
-                        i += 8 + n;
-                    } else if c[i..].starts_with(&[0x1b, 0x4a]) {
-                        out.extend(std::iter::repeat_n(0u8, c[i + 2] as usize * 48));
-                        i += 3;
-                    } else {
-                        break;
-                    }
-                }
-            }
-            out
-        };
-        assert_eq!(rows(&fed), rows(&plain));
     }
     #[test]
     fn c_abi_allocates_and_frees_an_error_response() {

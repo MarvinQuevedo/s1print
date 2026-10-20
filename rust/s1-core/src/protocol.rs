@@ -125,9 +125,6 @@ pub struct PrintOptions {
     pub max_blank_rows: usize,
     pub fit_content_width: bool,
     pub rows_per_block: usize,
-    /// Blank runs of at least this many rows travel as an `ESC J` feed instead of
-    /// raster bytes; 0 sends every row. Slow links (BLE) starve the head otherwise.
-    pub blank_rows_as_feed: usize,
 }
 impl Default for PrintOptions {
     fn default() -> Self {
@@ -141,41 +138,8 @@ impl Default for PrintOptions {
             max_blank_rows: 160,
             fit_content_width: false,
             rows_per_block: 255,
-            blank_rows_as_feed: 0,
         }
     }
-}
-/// One write unit for a block: ink rows as raster segments, long blank runs as feeds.
-fn raster_with_feeds(width_bytes: usize, rows: &[u8], min_run: usize) -> Result<Vec<u8>, String> {
-    let mut out = Vec::new();
-    let lines: Vec<&[u8]> = rows.chunks(width_bytes).collect();
-    let mut start = 0;
-    let mut i = 0;
-    while i < lines.len() {
-        if lines[i].iter().all(|&b| b == 0) {
-            let mut end = i;
-            while end < lines.len() && lines[end].iter().all(|&b| b == 0) {
-                end += 1;
-            }
-            if end - i >= min_run {
-                if start < i {
-                    out.extend(Command::raster(
-                        width_bytes,
-                        &rows[start * width_bytes..i * width_bytes],
-                    )?);
-                }
-                out.extend(Command::feed(end - i));
-                start = end;
-            }
-            i = end;
-        } else {
-            i += 1;
-        }
-    }
-    if start < lines.len() {
-        out.extend(Command::raster(width_bytes, &rows[start * width_bytes..])?);
-    }
-    Ok(out)
 }
 /// Each returned vector is one Swift-compatible write unit, including empty feed commands.
 pub fn build_job(pages: &[GrayPage], options: &PrintOptions) -> Result<Vec<Vec<u8>>, String> {
@@ -212,15 +176,7 @@ pub fn build_job(pages: &[GrayPage], options: &PrintOptions) -> Result<Vec<Vec<u
             .rows
             .chunks(options.rows_per_block * bitmap.width_bytes)
         {
-            if options.blank_rows_as_feed == 0 {
-                out.push(Command::raster(bitmap.width_bytes, rows)?);
-            } else {
-                out.push(raster_with_feeds(
-                    bitmap.width_bytes,
-                    rows,
-                    options.blank_rows_as_feed,
-                )?);
-            }
+            out.push(Command::raster(bitmap.width_bytes, rows)?);
         }
         if options.label_paper {
             out.push(Command::FORM_FEED.to_vec());

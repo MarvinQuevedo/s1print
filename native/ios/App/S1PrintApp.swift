@@ -69,6 +69,11 @@ struct MainScreen: View {
                         Toggle("Fit to printhead width", isOn: $model.options.fitContentWidth)
                         Toggle("Label paper", isOn: $model.options.labelPaper)
                     }.disabled(printer.busy)
+                    DisclosureGroup("Bluetooth sending (diagnostics)") {
+                        Picker("Strategy", selection: $settings.sendStrategy) {
+                            ForEach(SendStrategy.allCases) { Text($0.title).tag($0) }
+                        }.pickerStyle(.inline).labelsHidden()
+                    }.disabled(printer.busy)
                 }
                 if let job = model.job {
                     Section("Monochrome preview") {

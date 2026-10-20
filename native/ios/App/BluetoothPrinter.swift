@@ -346,7 +346,9 @@ enum BLEUARTProfile: CaseIterable {
         guard !busy, job.chunks.count >= 2 else { throw PrintFailure("Printer is busy or job is empty") }
         busy = true
         strategy = settings.sendStrategy
-        window = SendWindow(); jobBytes = 0; discardPending = false; creditsUsed = false; inbox = BLEInbox()
+        window = SendWindow(); jobBytes = 0; discardPending = false; creditsUsed = false
+        // Credits belong to the connection: a reused link keeps them (the printer announces them once, on subscribe).
+        inbox.clearReplies()
         jobStart = now
         trace("Print job started: strategy=\(strategy.rawValue); window=\(BLESendTuning.window)")
         defer { busy = false; deadline?.cancel() }

@@ -277,6 +277,14 @@ final class PrintExchangeTests: XCTestCase {
         XCTAssertEqual(channel.waits, [4, 4, 90])
         XCTAssertTrue(channel.replies.isEmpty)
     }
+    @MainActor func testRasterReplyBeforeStopCompletesTheJob() async throws {
+        let job = try job()
+        let channel = FakePrinterChannel(replies: [Data([0]), Data("OK".utf8), Data("OK".utf8)])
+        try await PrintExchange.run(job, channel: channel) { _ in }
+        let raster = try XCTUnwrap(job.chunks.lastIndex { $0.starts(with: Data([0x1D, 0x76, 0x30, 0x00])) })
+        XCTAssertLessThan(raster, job.chunks.count - 1)
+        XCTAssertEqual(channel.writes.last, job.chunks.last)
+    }
     @MainActor func testMissingFinalAcknowledgmentNeverRetries() async throws {
         let job = try job()
         let channel = FakePrinterChannel(replies: [Data([0]), Data("OK".utf8)])

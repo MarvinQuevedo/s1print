@@ -70,6 +70,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}
 th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 .tablewrap{overflow-x:auto}
 a{color:var(--accent)}
+.promo{margin-top:28px;border-color:var(--accent)}
 footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
 </style>
 </head>
@@ -80,12 +81,16 @@ footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
   <h1>Mac driver for the Luck Jingle S1 Bluetooth thermal printer</h1>
   <p class="lead">Print receipts, tickets and labels from Chrome, Safari, Preview or any app on your Mac, straight to your Luck Jingle S1 mini printer over Bluetooth. No vendor driver needed.</p>
   <div class="cta">
-    <a class="btn primary" href="https://github.com/MarvinQuevedo/s1print/releases/latest">Download for Mac</a>
+    <a class="btn primary" href="https://github.com/MarvinQuevedo/s1print/releases/latest">Download (Mac, Windows, Android)</a>
     <a class="btn" href="https://github.com/MarvinQuevedo/s1print">Source code on GitHub</a>
     <a class="btn" href="#es">Español</a>
   </div>
   <p class="small">Free and open source (MIT) · macOS 13 or later · Signed and notarized by Apple · by <a href="https://github.com/MarvinQuevedo">Marvin Quevedo</a></p>
 </header>
+
+<div class="card promo">
+  <p><strong>Brought to you by <a href="https://www.factadte.com">Facta DTE</a></strong>, electronic invoicing for El Salvador. S1Print was born to print Facta DTE counter tickets on this printer. Issue facturas, créditos fiscales and tickets from your browser, signed and sent to the Ministerio de Hacienda, with your documents in your own storage. <a href="https://www.factadte.com">Start free at factadte.com</a>.</p>
+</div>
 
 <h2>Is this your problem?</h2>
 <div class="card">
@@ -120,7 +125,9 @@ footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
   <tbody>
     <tr><td>Luck Jingle S1 (<code>S1_LYiN48D_GY</code>), 56–58 mm paper</td><td>Tested</td></tr>
     <tr><td>Other Luck Jingle / LuckPrinter models</td><td>Untested — <a href="https://github.com/MarvinQuevedo/s1print/issues/new">tell us your model</a></td></tr>
-    <tr><td>Windows and Linux</td><td>Planned</td></tr>
+    <tr><td>Windows and Android apps</td><td>In <a href="https://github.com/MarvinQuevedo/s1print/releases/latest">Releases</a> (Android APK is a debug-signed preview)</td></tr>
+    <tr><td>iPhone and iPad (Bluetooth Low Energy)</td><td>Tested on an iPhone; build from source, not on the App Store yet</td></tr>
+    <tr><td>Linux</td><td>Planned</td></tr>
   </tbody>
 </table>
 </div>
@@ -134,6 +141,8 @@ footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
 <p>Use the 58 mm roll size, not Letter or A4. A page laid out wider than 58 mm is shrunk by the browser.</p>
 <h3>How does it work?</h3>
 <p>A local IPP Everywhere print server receives each job from macOS, converts it for the 384-dot head and sends it over Bluetooth. Read the <a href="https://github.com/MarvinQuevedo/s1print/blob/main/docs/PAPER.md">technical paper</a>.</p>
+<h3>What did we learn making it work everywhere?</h3>
+<p>Blank bands over Bluetooth Low Energy, jobs that never finished, overlapping lines and web tickets that printed small: every problem and its fix is in the <a href="https://github.com/MarvinQuevedo/s1print/blob/main/docs/FIELD_NOTES.md">field notes</a>.</p>
 
 <section id="es" lang="es">
 <h2>En español: driver para Mac de la impresora térmica Luck Jingle S1</h2>
@@ -145,12 +154,14 @@ footer{margin-top:56px;font-size:14px;color:var(--muted);text-align:center}
   <li><a href="https://github.com/MarvinQuevedo/s1print/releases/latest">Descargue S1Print</a>, muévalo a Aplicaciones, ábralo y permita el Bluetooth.</li>
   <li>Imprima eligiendo <strong>S1 Bluetooth</strong> y el tamaño <strong>58x600mm</strong>.</li>
 </ol>
+<p>También hay versiones para <strong>Windows y Android</strong> en la misma página de descargas.</p>
+<p><strong>¿Factura en El Salvador?</strong> S1Print lo hace el equipo de <a href="https://www.factadte.com">Facta DTE</a>, facturación electrónica para El Salvador: emita facturas, créditos fiscales y tickets desde su navegador, firmados y enviados al Ministerio de Hacienda, y imprima el ticket en esta impresora. Búsquenos como <strong>Facta DTE</strong> y empiece gratis en <a href="https://www.factadte.com">factadte.com</a>.</p>
 </div>
 </section>
 
 <footer>
   S1Print is open source under the MIT License. Not affiliated with Luck Jingle or Xiamen Lujiang Technology Co., Ltd.<br>
-  Developed by <a href="https://github.com/MarvinQuevedo">Marvin Quevedo</a>.
+  Developed by <a href="https://github.com/MarvinQuevedo">Marvin Quevedo</a> · Made by the team behind <a href="https://www.factadte.com">Facta DTE</a>, electronic invoicing for El Salvador.
 </footer>
 </main>
 </body>

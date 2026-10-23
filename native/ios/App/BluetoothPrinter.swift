@@ -27,6 +27,8 @@ enum BLEUARTProfile: CaseIterable {
     @Published var devices: [CBPeripheral] = []
     @Published var message = "Scan for your S1 printer."
     @Published var busy = false
+    /// The last job finished and its connection was closed; cleared when the next job starts.
+    @Published var completed = false
     @Published var scanning = false
     @Published private(set) var selectedDevice: CBPeripheral?
     private let settings: PrintSettings
@@ -45,6 +47,7 @@ enum BLEUARTProfile: CaseIterable {
     private var replyWaiter: CheckedContinuation<Data, Error>?
     private var replyPredicate: ((Data) -> Bool)?
     private var inbox = BLEInbox()
+    private var closingAfterJob = false
     /// Credit gating was used by a send in this job.
     private var creditsUsed = false
     private var deadline: Task<Void, Never>?
@@ -120,6 +123,14 @@ enum BLEUARTProfile: CaseIterable {
         if !devices.contains(where: { $0.identifier == peripheral.identifier }) { devices.append(peripheral) }
         if selectedDevice == nil, settings.savedPrinter?.id == peripheral.identifier { selectedDevice = peripheral }
     }
+    /// Ends the link once a job has finished, so the printer leaves its connected (blue) state.
+    private func closeAfterJob() {
+        guard let peripheral, peripheral.state != .disconnected else { return }
+        trace("Closing the connection after the job")
+        closingAfterJob = true; disconnecting = true
+        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil; activeProfile = nil
+        central.cancelPeripheralConnection(peripheral)
+    }
     func cancel() { fail(PrintFailure("Canceled. Check the printed paper before retrying.")) }
     private func arm(_ seconds: Double, message: String) {
         deadline?.cancel()
@@ -174,6 +185,12 @@ enum BLEUARTProfile: CaseIterable {
     }
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         guard self.peripheral === peripheral else { return }
+        if closingAfterJob {
+            closingAfterJob = false
+            trace("Disconnected after the job")
+            self.peripheral = nil; disconnecting = false
+            return
+        }
         trace("Disconnected: \(error?.localizedDescription ?? "no system error")")
         self.peripheral = nil; disconnecting = false
         fail(error ?? PrintFailure("Printer disconnected. Check the paper before retrying."))
@@ -344,7 +361,7 @@ enum BLEUARTProfile: CaseIterable {
     func printJob(_ job: PrintJob, to device: CBPeripheral) async throws {
         trace("Print requested: \(job.chunks.count) chunks; Bluetooth state=\(central.state.rawValue)")
         guard !busy, job.chunks.count >= 2 else { throw PrintFailure("Printer is busy or job is empty") }
-        busy = true
+        busy = true; completed = false
         strategy = settings.sendStrategy
         window = SendWindow(); jobBytes = 0; discardPending = false; creditsUsed = false
         // Credits belong to the connection: a reused link keeps them (the printer announces them once, on subscribe).
@@ -358,6 +375,8 @@ enum BLEUARTProfile: CaseIterable {
             try await PrintExchange.run(job, channel: self) { message = $0 }
             trace(String(format: "Print job finished: %d bytes in %.1f s; strategy=%@", jobBytes, now - jobStart, strategy.rawValue))
             try await Task.sleep(for: .milliseconds(1500))
+            closeAfterJob()
+            completed = true
             message = "Printing completed"
         } catch {
             trace(String(format: "Print job failed after %d bytes, %.1f s; strategy=%@", jobBytes, now - jobStart, strategy.rawValue))

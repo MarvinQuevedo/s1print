@@ -94,14 +94,13 @@ struct MainScreen: View {
                         .accessibilityIdentifier("printTransportStatus")
                     if printer.busy {
                         ProgressView(); Button("Cancel printing", role: .destructive) { printTask?.cancel(); printer.cancel() }
+                    } else if printer.completed {
+                        Button("Done", systemImage: "checkmark") { printer.completed = false }
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                        Button("Print again", systemImage: "printer") { startPrint() }
+                            .disabled(model.job == nil || printer.selectedDevice == nil || model.working)
                     } else {
-                        Button("Print", systemImage: "printer") {
-                            guard let job = model.job, let device = printer.selectedDevice else { return }
-                            printTask = Task {
-                                do { try await printer.printJob(job, to: device) }
-                                catch { model.message = error.localizedDescription }
-                            }
-                        }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Button("Print", systemImage: "printer") { startPrint() }.buttonStyle(.borderedProminent).controlSize(.large)
                             .disabled(model.job == nil || printer.selectedDevice == nil || model.working)
                         Text(printer.selectedDevice == nil ? "Waiting for your printer. Select it once to save it." : "Review the preview, then print.").font(.caption).foregroundStyle(.secondary)
                     }
@@ -117,6 +116,15 @@ struct MainScreen: View {
                 else if phase == .background { printer.disconnectIfIdle() }
             }
             .task { model.refresh(); printer.startDiscovery() }
+        }
+    }
+}
+extension MainScreen {
+    private func startPrint() {
+        guard let job = model.job, let device = printer.selectedDevice else { return }
+        printTask = Task {
+            do { try await printer.printJob(job, to: device) }
+            catch { model.message = error.localizedDescription }
         }
     }
 }

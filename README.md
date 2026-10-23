@@ -4,7 +4,9 @@
 
 **Print receipts, tickets and labels from your Mac to a Luck Jingle S1 mini thermal printer over Bluetooth.** It works from Chrome, Safari, Preview or any app, with no vendor driver. Free, open source and notarized by Apple.
 
-[Download S1Print for Mac](https://github.com/MarvinQuevedo/s1print/releases/latest) · Developed by [Marvin Quevedo](https://github.com/MarvinQuevedo)
+[Download S1Print](https://github.com/MarvinQuevedo/s1print/releases/latest) (Mac, Windows, Android) · Developed by [Marvin Quevedo](https://github.com/MarvinQuevedo) · Brought to you by [Facta DTE](https://www.factadte.com)
+
+> **Built for [Facta DTE](https://www.factadte.com)**, electronic invoicing (DTE) for El Salvador. S1Print started as the way to print Facta DTE counter tickets on a pocket Bluetooth printer. If you issue facturas, créditos fiscales or tickets in El Salvador, Facta DTE signs and sends them to the Ministerio de Hacienda from your browser, keeps your documents in your own storage, and prints the ticket on this printer. Free plan available at [factadte.com](https://www.factadte.com).
 
 ## Is this for you?
 
@@ -39,7 +41,8 @@ Requires macOS 13 Ventura or later. Releases from 0.3.4 on are signed with a Dev
 | Luck Jingle **S1** (`S1_LYiN48D_GY`, firmware V3.0.3), 56–58 mm paper | Tested |
 | Other Luck Jingle / LuckPrinter "Lujiang" models (names like `PPS1_`, `S1_`, `LuckP`) | Untested. They may work; please [open an issue](https://github.com/MarvinQuevedo/s1print/issues/new) with your model |
 | Printers that use the Luck Jingle app under other brands | Untested. The command set is shared by the LuckPrinter family, but start/stop commands and head width vary |
-| Android, Windows | Native preview on `feature/native-rust-platforms`: [setup and builds](docs/NATIVE_PLATFORMS.md). Physical printer tests pending |
+| Windows, Android | Native apps on the shared Rust core, in [Releases](https://github.com/MarvinQuevedo/s1print/releases/latest): Windows installer and Android APK (debug-signed preview). [Details](docs/NATIVE_PLATFORMS.md) |
+| iOS / iPadOS | Native app over Bluetooth Low Energy, tested on an iPhone with the S1. Not on the App Store yet: build it from source ([docs/IOS.md](docs/IOS.md)) |
 | Linux | Rust core only; native printer application remains planned: [docs/CROSS_PLATFORM.md](docs/CROSS_PLATFORM.md) |
 
 ## FAQ
@@ -56,8 +59,11 @@ Choose **S1 Bluetooth** and the **58x600mm** paper size. In Chrome, set Margins 
 ### The print is too small. What can I do?
 Use the 58 mm roll size, not Letter or A4. If a web page lays the receipt out wider than 58 mm, the browser shrinks it; S1Print crops empty margins and fills the head, but the page itself sets the font size.
 
-### Does it work with Bluetooth Low Energy (BLE) "cat printers"?
-Not yet. S1Print uses classic Bluetooth (SPP), which the S1 supports.
+### Does it work over Bluetooth Low Energy (BLE)?
+On iOS, yes: iPhones cannot use classic Bluetooth serial, so the iOS app speaks the S1's BLE service with its credit-based flow control. Mac, Windows and Android use classic Bluetooth (SPP). Other BLE "cat printers" are untested.
+
+### Where are the hard-won lessons?
+[docs/FIELD_NOTES.md](docs/FIELD_NOTES.md) collects what went wrong on each platform and what fixed it: blank bands over BLE, jobs that never finished, overlapping lines, and how web tickets should be printed.
 
 ### Is it safe?
 The source code is public, the app is notarized by Apple, and the print server only accepts jobs from your own Mac unless you enable sharing.
@@ -118,8 +124,18 @@ App ─► CUPS queue "S1 Bluetooth" (IPP Everywhere, no driver)
 
 - [docs/PAPER.md](docs/PAPER.md): the whole design and every problem found on paper, with its fix.
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): the S1 command set.
+- [docs/FIELD_NOTES.md](docs/FIELD_NOTES.md): lessons from every platform, in one page.
+- [docs/LUCKPRINTER_SDK.md](docs/LUCKPRINTER_SDK.md): what the vendor app does, and how we found out.
 
 Thanks to [fichero-printer](https://github.com/0xMH/fichero-printer) for documenting the LuckPrinter command family.
+
+## Made by the Facta DTE team
+
+S1Print is free and stays free. It is maintained by the people behind
+[Facta DTE](https://www.factadte.com), electronic invoicing for El Salvador:
+Factura, Crédito Fiscal, Exportación, Sujeto Excluido and the rest of the DTE
+catalogue, signed in your browser and sent to the Ministerio de Hacienda, with
+your documents stored where you choose. Look for us as **Facta DTE**.
 
 ## License
 

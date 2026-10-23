@@ -110,6 +110,11 @@ func ippeveConfig() -> String {
     lines.append("ATTR resolution pwg-raster-document-resolution-supported 406dpi")
     lines.append("ATTR resolution printer-resolution-supported 406dpi")
     lines.append("ATTR resolution printer-resolution-default 406dpi")
+    // macOS's AirPrint driver (ipp2ppd, used for a printer added from Bonjour)
+    // only writes a resolution into its PPD when print-quality-supported is
+    // present; without it CUPS rasterizes at its 100 dpi default.
+    lines.append("ATTR enum print-quality-supported 4,5")
+    lines.append("ATTR enum print-quality-default 4")
     lines.append("ATTR keyword pwg-raster-document-type-supported \"black_1\",\"sgray_8\"")
     lines.append("ATTR keyword urf-supported \"V1.4\",\"W8\",\"DM1\",\"RS406\",\"CP1\",\"IS1\",\"MT1-3-10-12\"")
     lines.append("ATTR keyword print-color-mode-supported \"monochrome\"")

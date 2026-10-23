@@ -8,6 +8,13 @@ enum BLEUARTProfile: CaseIterable {
     var serviceUUID: CBUUID { CBUUID(string: self == .ff00 ? "FF00" : "18F0") }
     var writeUUID: CBUUID { CBUUID(string: self == .ff00 ? "FF02" : "2AF1") }
     var notifyUUID: CBUUID { CBUUID(string: self == .ff00 ? "FF01" : "2AF0") }
+    /// Second notify characteristic (FF03 next to FF01): the printer's flow-control channel.
+    var auxNotifyUUID: CBUUID? { self == .ff00 ? CBUUID(string: "FF03") : nil }
+
+    /// Only the primary notify characteristic carries replies (status, `OK`, `0xAA`).
+    func isReplySource(_ uuid: CBUUID) -> Bool { uuid == notifyUUID }
+    /// The auxiliary characteristic carries credits and the maximum payload, never replies.
+    func isFlowSource(_ uuid: CBUUID) -> Bool { uuid == auxNotifyUUID }
 
     static func matching(_ uuid: CBUUID) -> BLEUARTProfile? {
         // CoreBluetooth can report Bluetooth base UUIDs in either short or full form.
@@ -24,32 +31,36 @@ enum BLEUARTProfile: CaseIterable {
     @Published private(set) var selectedDevice: CBPeripheral?
     private let settings: PrintSettings
     private var discoveryRequested = false
+    private var activeProfile: BLEUARTProfile?
     var isBluetoothReady: Bool { central.state == .poweredOn }
     private var central: CBCentralManager!
     private var peripheral: CBPeripheral?
     private var writeCharacteristic: CBCharacteristic?
     private var notifyCharacteristic: CBCharacteristic?
+    private var auxNotifyCharacteristic: CBCharacteristic?
     private var connectWaiter: CheckedContinuation<Void, Error>?
     private var writeWaiter: CheckedContinuation<Void, Error>?
     private var flowWaiter: CheckedContinuation<Void, Error>?
+    private var flowTimer: Task<Void, Never>?
     private var replyWaiter: CheckedContinuation<Data, Error>?
     private var replyPredicate: ((Data) -> Bool)?
-    private var received = Data()
+    private var inbox = BLEInbox()
+    /// Credit gating was used by a send in this job.
+    private var creditsUsed = false
     private var deadline: Task<Void, Never>?
     private var scanDeadline: Task<Void, Never>?
     private var disconnecting = false
+    private var window = SendWindow()
+    private var strategy = SendStrategy.defaultStrategy
+    /// Replies are cleared after the next gate opens too, so notifications that were still in flight cannot leak in.
+    private var discardPending = false
+    private var jobStart: TimeInterval = 0
+    private var jobBytes = 0
 
-    private func trace(_ event: String) {
-        NSLog("S1Print BLE: %@", event)
-        // Keep transport metadata only; never persist document or raster bytes.
-        guard let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
-        let url = directory.appendingPathComponent("ble-diagnostics.log")
-        var data = (try? Data(contentsOf: url)) ?? Data()
-        if data.count > 65536 { data = Data(data.suffix(32768)) }
-        data.append(Data("\(Date().ISO8601Format()) \(event)\n".utf8))
-        do { try data.write(to: url, options: .atomic) }
-        catch { NSLog("S1Print BLE log write failed: %@", error.localizedDescription) }
-    }
+    private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+    // Keep transport metadata only; never persist document or raster bytes.
+    private func trace(_ event: String) { BLETrace.log(event) }
 
     private func connectionStage(_ stage: String) {
         message = stage
@@ -61,7 +72,7 @@ enum BLEUARTProfile: CaseIterable {
     init(settings: PrintSettings) {
         self.settings = settings
         super.init()
-        trace("Transport initialized; acknowledged writes preferred; packet pause=10 ms")
+        trace("Transport initialized; strategy=\(settings.sendStrategy.rawValue)")
         central = CBCentralManager(delegate: self, queue: .main)
     }
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -122,11 +133,12 @@ enum BLEUARTProfile: CaseIterable {
         deadline?.cancel()
         let connect = connectWaiter; connectWaiter = nil
         let write = writeWaiter; writeWaiter = nil
+        flowTimer?.cancel(); flowTimer = nil
         let flow = flowWaiter; flowWaiter = nil
         let reply = replyWaiter; replyWaiter = nil; replyPredicate = nil
         connect?.resume(throwing: error); write?.resume(throwing: error)
         flow?.resume(throwing: error); reply?.resume(throwing: error)
-        writeCharacteristic = nil; notifyCharacteristic = nil
+        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil; activeProfile = nil
         if let peripheral, peripheral.state != .disconnected {
             disconnecting = true; central.cancelPeripheralConnection(peripheral)
         } else {
@@ -142,7 +154,7 @@ enum BLEUARTProfile: CaseIterable {
             throw PrintFailure("The previous printer is disconnecting. Try again shortly.")
         }
         peripheral = device; device.delegate = self
-        writeCharacteristic = nil; notifyCharacteristic = nil
+        writeCharacteristic = nil; notifyCharacteristic = nil; auxNotifyCharacteristic = nil; activeProfile = nil
         stopScan()
         try await withCheckedThrowingContinuation { continuation in
             connectWaiter = continuation
@@ -190,48 +202,109 @@ enum BLEUARTProfile: CaseIterable {
               let notify = characteristics.first(where: { $0.uuid == profile.notifyUUID && (!$0.properties.intersection([.notify, .indicate]).isEmpty) }) else {
             fail(PrintFailure("Unsupported BLE write/notification characteristics")); return
         }
-        writeCharacteristic = write; notifyCharacteristic = notify
+        writeCharacteristic = write; notifyCharacteristic = notify; activeProfile = profile
+        auxNotifyCharacteristic = profile.auxNotifyUUID.flatMap { uuid in
+            characteristics.first { $0.uuid == uuid && !$0.properties.intersection([.notify, .indicate]).isEmpty }
+        }
+        inbox.resetFlow()
         connectionStage("Enabling printer notifications")
         peripheral.setNotifyValue(true, for: notify)
+        if let aux = auxNotifyCharacteristic { peripheral.setNotifyValue(true, for: aux) }
     }
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        guard self.peripheral === peripheral, connectWaiter != nil else { return }
+        guard self.peripheral === peripheral else { return }
+        if characteristic === auxNotifyCharacteristic {
+            // The second channel is optional: log it, never fail the connection over it.
+            trace("Notifications \(characteristic.uuid.uuidString) enabled=\(characteristic.isNotifying) error=\(error?.localizedDescription ?? "none")")
+            return
+        }
+        guard connectWaiter != nil else { return }
         if let error { fail(error); return }
         guard characteristic === notifyCharacteristic, characteristic.isNotifying else { return }
         trace("Notifications enabled; printer transport ready")
+        trace("Max write length: withResponse=\(peripheral.maximumWriteValueLength(for: .withResponse)) withoutResponse=\(peripheral.maximumWriteValueLength(for: .withoutResponse)); write properties=\(writeCharacteristic?.properties.rawValue ?? 0)")
         deadline?.cancel(); let waiter = connectWaiter; connectWaiter = nil; waiter?.resume()
     }
     func send(_ data: Data) async throws {
         guard let peripheral, let characteristic = writeCharacteristic, peripheral.state == .connected else { throw PrintFailure("Printer is disconnected") }
-        // Host-side queue capacity does not represent the printer's receive buffer.
-        // Prefer acknowledged writes when supported, and pace both write modes.
-        let type: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
-        let size = min(512, peripheral.maximumWriteValueLength(for: type))
-        trace("Send \(data.count) bytes; packet limit=\(size); mode=\(type == .withoutResponse ? "without response" : "with response")")
+        let properties = characteristic.properties
+        let type: CBCharacteristicWriteType
+        switch strategy {
+        case .ackedPaced, .acked:
+            type = properties.contains(.write) ? .withResponse : .withoutResponse
+        case .windowed, .flow:
+            if properties.contains(.writeWithoutResponse) { type = .withoutResponse }
+            else { trace("Strategy \(strategy.rawValue): no write-without-response; using acknowledged writes"); type = .withResponse }
+        }
+        let transportLimit = min(BLESendTuning.maximumPacket, peripheral.maximumWriteValueLength(for: type))
+        let size = inbox.flow.packetSize(transportLimit: transportLimit)
+        let gated = (strategy == .windowed || strategy == .flow) && type == .withoutResponse
+        let useCredits = gated && inbox.flow.creditsAnnounced
+        let windowed = strategy == .windowed && type == .withoutResponse && !useCredits
+        if useCredits { creditsUsed = true }
+        let gate = useCredits ? "credits" : (windowed ? "window" : (type == .withoutResponse ? "ready" : "ack"))
+        trace("Send \(data.count) bytes; packet limit=\(size) (transport \(transportLimit), announced \(inbox.flow.maxPayload.map(String.init) ?? "none")); mode=\(type == .withoutResponse ? "without response" : "with response"); strategy=\(strategy.rawValue); gate=\(gate); credits=\(inbox.flow.credits)")
         guard size > 0 else { throw PrintFailure("Invalid BLE packet size") }
+        let started = now
         for offset in stride(from: 0, to: data.count, by: size) {
             try Task.checkCancellation()
             let packet = data.subdata(in: offset..<min(offset + size, data.count))
             if type == .withoutResponse {
-                if !peripheral.canSendWriteWithoutResponse {
-                    try await withCheckedThrowingContinuation { continuation in
-                        flowWaiter = continuation; arm(10, message: "Printer stopped accepting data")
-                    }
+                while true {
+                    let decision: SendWindow.Decision
+                    if useCredits { decision = inbox.flow.next(canSend: peripheral.canSendWriteWithoutResponse) }
+                    else if windowed { decision = window.next(at: now, canSend: peripheral.canSendWriteWithoutResponse) }
+                    else { decision = peripheral.canSendWriteWithoutResponse ? .go : .wait(timeout: nil) }
+                    guard case .wait(let timeout) = decision else { break }
+                    try await waitForFlow(timeout: timeout)
                 }
                 guard peripheral.state == .connected, writeCharacteristic != nil else { throw PrintFailure("Printer disconnected") }
+                if discardPending { inbox.clearReplies(); discardPending = false }
                 peripheral.writeValue(packet, for: characteristic, type: type)
+                if useCredits { _ = inbox.consumeCredit() }
+                if windowed { window.noteSent(at: now) }
             } else {
+                if discardPending { inbox.clearReplies(); discardPending = false }
                 try await withCheckedThrowingContinuation { continuation in
                     writeWaiter = continuation; arm(10, message: "Printer did not acknowledge a BLE write")
                     peripheral.writeValue(packet, for: characteristic, type: type)
                 }
             }
-            try await Task.sleep(for: .milliseconds(10))
+            if strategy == .ackedPaced { try await Task.sleep(for: .seconds(BLESendTuning.ackedPause)) }
+        }
+        let elapsed = now - started
+        jobBytes += data.count
+        trace(String(format: "Chunk sent: %d bytes in %.0f ms (%.1f kB/s); credits left=%d", data.count, elapsed * 1000, elapsed > 0 ? Double(data.count) / 1000 / elapsed : 0, inbox.flow.credits))
+    }
+    /// Suspends until readiness, a notification, or `timeout`; a stall past 10 s fails the job.
+    private func waitForFlow(timeout: TimeInterval?) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            flowWaiter = continuation; arm(10, message: "Printer stopped accepting data")
+            flowTimer?.cancel()
+            flowTimer = timeout.map { seconds in
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(max(0, seconds)))
+                    if !Task.isCancelled { self?.wakeFlow() }
+                }
+            }
+        }
+    }
+    private func wakeFlow() {
+        flowTimer?.cancel(); flowTimer = nil
+        guard let waiter = flowWaiter else { return }
+        deadline?.cancel(); flowWaiter = nil; waiter.resume()
+    }
+    func settleInFlight() async throws {
+        // Credit gating has no per-packet FF01 reply to wait for.
+        if creditsUsed { trace("Settle skipped: credit flow control"); return }
+        while case .wait(let timeout) = window.drain(at: now) {
+            try Task.checkCancellation()
+            try await waitForFlow(timeout: timeout)
         }
     }
     func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
-        guard self.peripheral === peripheral, let waiter = flowWaiter else { return }
-        deadline?.cancel(); flowWaiter = nil; waiter.resume()
+        guard self.peripheral === peripheral else { return }
+        wakeFlow()
     }
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         guard self.peripheral === peripheral else { return }
@@ -240,7 +313,7 @@ enum BLEUARTProfile: CaseIterable {
         deadline?.cancel(); writeWaiter = nil; waiter.resume()
     }
     func response(seconds: Double, predicate: @escaping (Data) -> Bool) async throws -> Data {
-        if predicate(received) { return received }
+        if predicate(inbox.received) { return inbox.received }
         return try await withCheckedThrowingContinuation { continuation in
             replyWaiter = continuation; replyPredicate = predicate
             arm(seconds, message: "Printer did not confirm completion. Check the paper before retrying.")
@@ -249,26 +322,45 @@ enum BLEUARTProfile: CaseIterable {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard self.peripheral === peripheral else { return }
         if let error { fail(error); return }
-        guard characteristic === notifyCharacteristic, let data = characteristic.value else { return }
-        trace("Received \(data.count) reply bytes")
-        received.append(data)
-        if received.count > 65536 { fail(PrintFailure("Unexpected printer response size")); return }
-        if let predicate = replyPredicate, predicate(received) {
-            deadline?.cancel(); let waiter = replyWaiter; replyWaiter = nil; replyPredicate = nil; waiter?.resume(returning: received)
+        guard let profile = activeProfile, let data = characteristic.value else { return }
+        trace(BLETrace.notification(from: characteristic.uuid.uuidString, data))
+        switch inbox.ingest(data, from: characteristic.uuid, profile: profile) {
+        case .flow(let change):
+            trace("Flow control \(change); credits=\(inbox.flow.credits) maxPayload=\(inbox.flow.maxPayload.map(String.init) ?? "none")")
+            wakeFlow()
+        case .reply:
+            window.noteNotification(at: now)
+            wakeFlow()
+            if inbox.received.count > 65536 { fail(PrintFailure("Unexpected printer response size")); return }
+            if let predicate = replyPredicate, predicate(inbox.received) {
+                let reply = inbox.received
+                deadline?.cancel(); let waiter = replyWaiter; replyWaiter = nil; replyPredicate = nil; waiter?.resume(returning: reply)
+            }
+        case .ignored:
+            break
         }
     }
-    func discardReplies() { received = Data() }
+    func discardReplies() { inbox.clearReplies(); discardPending = true }
     func printJob(_ job: PrintJob, to device: CBPeripheral) async throws {
         trace("Print requested: \(job.chunks.count) chunks; Bluetooth state=\(central.state.rawValue)")
         guard !busy, job.chunks.count >= 2 else { throw PrintFailure("Printer is busy or job is empty") }
         busy = true
+        strategy = settings.sendStrategy
+        window = SendWindow(); jobBytes = 0; discardPending = false; creditsUsed = false
+        // Credits belong to the connection: a reused link keeps them (the printer announces them once, on subscribe).
+        inbox.clearReplies()
+        jobStart = now
+        trace("Print job started: strategy=\(strategy.rawValue); window=\(BLESendTuning.window)")
         defer { busy = false; deadline?.cancel() }
         do {
             message = "Connecting to \(device.name ?? "S1")…"
             try await connect(device)
             try await PrintExchange.run(job, channel: self) { message = $0 }
+            trace(String(format: "Print job finished: %d bytes in %.1f s; strategy=%@", jobBytes, now - jobStart, strategy.rawValue))
             try await Task.sleep(for: .milliseconds(1500))
             message = "Printing completed"
-        } catch { fail(error); message = error.localizedDescription; throw error }
+        } catch {
+            trace(String(format: "Print job failed after %d bytes, %.1f s; strategy=%@", jobBytes, now - jobStart, strategy.rawValue))
+            fail(error); message = error.localizedDescription; throw error }
     }
 }

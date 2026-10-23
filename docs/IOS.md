@@ -12,7 +12,8 @@ Printer selection and preview are collapsible; printer selection starts expanded
 when no default is saved. Print options are summarized read-only in the panel and
 configured in the main app. Import and print errors remain visible in the main status.
 By default, printing starts after the user presses Print. The extension
-uses the same Rust core and acknowledged, paced BLE transport as the main app. Keep the
+uses the same Rust core and credit-gated BLE transport as the main app (one raster command
+per page; see `docs/IOS_BLE_THROUGHPUT_PLAN.md` and `docs/LUCKPRINTER_SDK.md`). Keep the
 share panel open until completion; closing it cancels its active work. Done is disabled
 while printing, and a completed job cannot be sent again from the same panel.
 Providers can supply a typed PDF/image, a generic data file, or a local file URL.

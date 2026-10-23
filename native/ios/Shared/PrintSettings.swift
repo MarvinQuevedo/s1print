@@ -12,6 +12,10 @@ struct SavedPrinter: Codable, Equatable {
     @Published var automaticSharePrinting = false {
         didSet { defaults.set(automaticSharePrinting, forKey: "automaticSharePrinting") }
     }
+    @Published var sendStrategy = SendStrategy.defaultStrategy {
+        didSet { defaults.set(sendStrategy.rawValue, forKey: Self.sendStrategyKey) }
+    }
+    static let sendStrategyKey = "bleSendStrategy"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults? = nil, legacy: UserDefaults? = .standard) {
@@ -25,6 +29,7 @@ struct SavedPrinter: Codable, Equatable {
     func reload() {
         savedPrinter = defaults.data(forKey: "savedPrinter").flatMap { try? JSONDecoder().decode(SavedPrinter.self, from: $0) }
         automaticSharePrinting = defaults.bool(forKey: "automaticSharePrinting")
+        sendStrategy = defaults.string(forKey: Self.sendStrategyKey).flatMap(SendStrategy.init(rawValue:)) ?? .defaultStrategy
     }
 
     func select(id: UUID, name: String) {

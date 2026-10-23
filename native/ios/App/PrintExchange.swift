@@ -4,6 +4,12 @@ import Foundation
     func discardReplies()
     func send(_ data: Data) async throws
     func response(seconds: Double, predicate: @escaping (Data) -> Bool) async throws -> Data
+    /// Wait until the printer has accounted for everything already sent (windowed transports).
+    func settleInFlight() async throws
+}
+
+extension PrintChannel {
+    func settleInFlight() async throws {}
 }
 
 /// Protocol sequencing independent of Core Bluetooth, exercised with a local in-memory channel.
@@ -19,11 +25,20 @@ import Foundation
         _ = try await channel.response(seconds: 4) { $0.range(of: Data("OK".utf8)) != nil }
         for index in 1..<job.chunks.count {
             try Task.checkCancellation()
-            if index == job.chunks.count - 1 { channel.discardReplies() }
+            if index == job.chunks.count - 1 {
+                // Late per-packet notifications must not be mistaken for the stop reply.
+                try await channel.settleInFlight()
+                channel.discardReplies()
+            }
             progress("Sending \(index * 100 / job.chunks.count)%…")
             try await channel.send(job.chunks[index])
         }
         progress("Waiting for the printer to finish…")
-        _ = try await channel.response(seconds: 90) { $0.range(of: Data("OK".utf8)) != nil }
+        _ = try await channel.response(seconds: BLESendTuning.completionSeconds, predicate: isCompletion)
+    }
+
+    /// The stop command answers `OK`, or a lone `0xAA` byte on some firmware; either characteristic.
+    static func isCompletion(_ data: Data) -> Bool {
+        data.range(of: Data("OK".utf8)) != nil || data == Data([0xAA])
     }
 }

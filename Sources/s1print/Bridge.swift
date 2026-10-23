@@ -13,6 +13,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var server: Process?
     private var stopping = false
+    private var termSource: DispatchSourceSignal?
     private let printerItem = NSMenuItem(title: "Printer: checking…", action: nil, keyEquivalent: "")
     private let stateItem = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
     private let queueItem = NSMenuItem(title: "Installed in macOS Printers", action: #selector(toggleQueue), keyEquivalent: "")
@@ -54,6 +55,13 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: "Quit S1Print", action: #selector(quit), keyEquivalent: "q").target = self
         statusItem.menu = menu
         wireModel()
+        // A plain `kill` or a logout skips applicationWillTerminate; stop the
+        // server then too, or it keeps the port and the next launch cannot bind.
+        signal(SIGTERM, SIG_IGN)
+        termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        termSource?.setEventHandler { [weak self] in self?.quit() }
+        termSource?.resume()
+        stopStaleServers()
         startServer()
         // First run: install the queue so the printer just shows up in print dialogs.
         if !UserDefaults.standard.bool(forKey: "queueOffered") {
@@ -121,6 +129,25 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: ippeveprinter
 
+    /// Ends an `ippeveprinter` left behind by an earlier run that was force-quit:
+    /// it serves this same executable and holds the port. Inside the App Sandbox
+    /// this finds nothing to end; the leftover keeps serving jobs with this same
+    /// executable, so printing still works until it exits.
+    private func stopStaleServers() {
+        guard let exe = Bundle.main.executablePath else { return }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+        p.arguments = ["-f", "^/usr/bin/ippeveprinter .*-c \(NSRegularExpression.escapedPattern(for: exe)) "]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        guard (try? p.run()) != nil else { return }
+        p.waitUntilExit()
+        let pids = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .split(separator: "\n").compactMap { Int32($0) }
+        for pid in pids { kill(pid, SIGTERM) }
+        if !pids.isEmpty { Thread.sleep(forTimeInterval: 0.5) }
+    }
+
     private func startServer() {
         let settings = Settings.load()
         let dir = Settings.directory
@@ -141,10 +168,10 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // (the path for a sandboxed build that cannot run lpadmin). Once our queue
         // exists, stop advertising: the advert would show up in CUPS as a second
         // destination named like the queue.
-        if !settings.shareOnNetwork {
-            args += ["-n", "localhost"]
-            if ownQueueExists() { args += ["-r", "off"] }
-        }
+        if !settings.shareOnNetwork { args += ["-n", "localhost"] }
+        // «Add Printer» only offers automatic (AirPrint) setup for adverts in the
+        // _universal subtype; ippeveprinter registers no subtype by default.
+        args += ["-r", !settings.shareOnNetwork && ownQueueExists() ? "off" : "_print,_universal"]
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
         // When shared, this Mac would list its own advert next to the local queue
         // under the same name; give the advert the Mac's name to tell them apart.

@@ -44,6 +44,19 @@ extension PrintChannel {
         _ = try await channel.response(seconds: BLESendTuning.completionSeconds, predicate: isCompletion)
     }
 
+    /// FF01 error replies the vendor SDK aborts on (`FF 01` out of paper, `FF 02` cover open,
+    /// `FF 03`/`FF 13` overheated, `FF 04` low battery); nil for anything else.
+    nonisolated static func printerError(_ data: Data) -> String? {
+        guard data.count == 2, data[data.startIndex] == 0xFF else { return nil }
+        switch data[data.startIndex + 1] {
+        case 0x01: return "The printer is out of paper. Load a roll and print again."
+        case 0x02: return "The printer cover is open. Close it and print again."
+        case 0x03, 0x13: return "The printer is too hot. Let it cool down, then print again."
+        case 0x04: return "The printer battery is low. Charge it, then print again."
+        default: return nil
+        }
+    }
+
     /// The stop command answers `OK`, or a lone `0xAA` byte on some firmware; either characteristic.
     static func isCompletion(_ data: Data) -> Bool {
         data.range(of: Data("OK".utf8)) != nil || data == Data([0xAA])

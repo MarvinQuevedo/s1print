@@ -349,6 +349,7 @@ enum BLEUARTProfile: CaseIterable {
             window.noteNotification(at: now)
             wakeFlow()
             if inbox.received.count > 65536 { fail(PrintFailure("Unexpected printer response size")); return }
+            if busy, let problem = PrintExchange.printerError(data) { fail(PrintFailure(problem)); return }
             if let predicate = replyPredicate, predicate(inbox.received) {
                 let reply = inbox.received
                 deadline?.cancel(); let waiter = replyWaiter; replyWaiter = nil; replyPredicate = nil; waiter?.resume(returning: reply)
@@ -362,7 +363,12 @@ enum BLEUARTProfile: CaseIterable {
         trace("Print requested: \(job.chunks.count) chunks; Bluetooth state=\(central.state.rawValue)")
         guard !busy, job.chunks.count >= 2 else { throw PrintFailure("Printer is busy or job is empty") }
         busy = true; completed = false
+        #if DEBUG
         strategy = settings.sendStrategy
+        #else
+        // Store builds hide the diagnostics picker, so a choice saved by a debug build must not linger.
+        strategy = .defaultStrategy
+        #endif
         window = SendWindow(); jobBytes = 0; discardPending = false; creditsUsed = false
         // Credits belong to the connection: a reused link keeps them (the printer announces them once, on subscribe).
         inbox.clearReplies()

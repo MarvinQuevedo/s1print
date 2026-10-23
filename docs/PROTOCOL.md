@@ -82,3 +82,10 @@ the selected media is placed at the **bottom** of the media, so receipts on a
 long roll size arrive with a large white area on top: s1print trims blank rows
 at both ends of roll pages and never sends more than 20 mm of consecutive blank
 rows.
+
+## BLE and the vendor SDK
+
+Over BLE (service `FF00`), `FF03` is credit flow control: `01 NN` grants NN
+200-byte packets and `02 LL HH` announces the packet size. `FF01` carries
+`OK`/`AA` and the `FF xx` error codes. Send each page as a single `GS v 0`
+command. Details, and what the official app sends: `docs/LUCKPRINTER_SDK.md`.

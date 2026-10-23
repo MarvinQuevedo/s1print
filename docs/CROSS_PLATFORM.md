@@ -1,6 +1,9 @@
 # Cross-platform plan: Linux and Windows
 
-Status: plan, written 18 Oct 2026, after macOS 0.3.5. Nothing below is built yet.
+Historical plan, written 18 Oct 2026 after macOS 0.3.5. The current Android and
+Windows implementation instead uses a shared Rust core with native Kotlin/C#
+adapters: see [NATIVE_PLATFORMS.md](NATIVE_PLATFORMS.md). Linux remains planned.
+The Swift-server architecture below is retained as historical design context.
 
 ## 1. Goal
 

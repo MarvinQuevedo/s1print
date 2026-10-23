@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="header_title">S1Print</string>
+    <string name="header_subtitle">Print PDFs and images on your S1 thermal printer.</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="cancel">Cancel</string>
+    <string name="refresh">Refresh</string>
+    <string name="bluetooth_settings">Bluetooth settings</string>
+    <string name="settings_unavailable">This device does not expose those settings.</string>
+
+    <!-- Printer card -->
+    <string name="printer_permission_title">Allow nearby devices</string>
+    <string name="printer_permission_body">S1Print needs Nearby devices access to list and connect to paired printers.</string>
+    <string name="printer_allow">Allow access</string>
+    <string name="printer_blocked_body">Nearby devices access is turned off for S1Print. Turn it on in app settings.</string>
+    <string name="printer_open_app_settings">Open app settings</string>
+    <string name="printer_unavailable_title">Bluetooth unavailable</string>
+    <string name="printer_unavailable_body">This device has no Bluetooth.</string>
+    <string name="printer_bt_off_title">Bluetooth is off</string>
+    <string name="printer_bt_off_body">Turn on Bluetooth, then return to S1Print.</string>
+    <string name="printer_none_title">No paired printers</string>
+    <string name="printer_none_body">Pair your S1 in Android Bluetooth settings, then come back.</string>
+    <string name="printer_choose_title">Choose a printer</string>
+    <plurals name="printer_choose_body">
+        <item quantity="one">%d paired device found.</item>
+        <item quantity="other">%d paired devices found.</item>
+    </plurals>
+    <string name="printer_choose_action">Choose printer</string>
+    <string name="printer_change">Change printer</string>
+    <string name="printer_missing_title">Saved printer not found</string>
+    <string name="printer_missing_body">The saved printer is not paired right now. Pair it again or choose another one.</string>
+    <string name="printer_list_error">Cannot list paired devices: %1$s</string>
+    <string name="check_status">Check status</string>
+    <string name="status_not_checked">Status: not checked yet</string>
+    <string name="status_checking">Checking printer…</string>
+    <string name="status_result">%1$s · checked %2$s</string>
+    <string name="status_failed">Status check failed: %1$s</string>
+    <string name="picker_title">Choose printer</string>
+
+    <!-- Document card -->
+    <string name="document_empty_title">No document yet</string>
+    <string name="document_empty_body">Import a PDF or image to see exactly what will print.</string>
+    <string name="document_choose">Choose PDF or image</string>
+    <string name="document_replace">Replace</string>
+    <string name="document_use_test_page">Use test page</string>
+    <string name="document_preparing_title">Preparing document</string>
+    <string name="document_preparing_body">Preparing preview…</string>
+    <string name="document_failed_title">Cannot prepare this document</string>
+    <string name="document_failed_fallback">The document could not be prepared.</string>
+    <string name="document_try_again">Try again</string>
+    <string name="document_choose_another">Choose another file</string>
+    <string name="document_default_name">Document</string>
+    <string name="kind_pdf">PDF</string>
+    <string name="kind_image">Image</string>
+    <string name="kind_test">Built-in</string>
+    <string name="document_meta">%1$s · %2$s</string>
+    <plurals name="pages">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+
+    <!-- Preview card -->
+    <string name="preview_title">Preview</string>
+    <string name="preview_caption">Monochrome preview of the data sent to the printer · %1$d dots wide · %2$d dots tall · %3$s</string>
+    <string name="preview_description">Monochrome print preview, %1$d by %2$d dots, %3$s</string>
+
+    <!-- Print options -->
+    <string name="options_title">Print options</string>
+    <string name="options_summary">%1$s density · %2$s · %3$s</string>
+    <string name="options_header_description">%1$s, %2$s</string>
+    <string name="options_expanded">expanded</string>
+    <string name="options_collapsed">collapsed</string>
+    <string name="density_title">Density</string>
+    <string name="density_light">Light</string>
+    <string name="density_medium">Medium</string>
+    <string name="density_dark">Dark</string>
+    <string name="density_help">Higher density prints darker.</string>
+    <string name="fit_title">Fit to printhead width</string>
+    <string name="fit_help">Scale content to fill the 384-dot printhead.</string>
+    <string name="fit_summary_on">Fit to width</string>
+    <string name="fit_summary_off">Original width</string>
+    <string name="label_title">Label paper</string>
+    <string name="label_help">Use gap feed for label rolls. Continuous paper is trimmed at the bottom.</string>
+    <string name="paper_summary_continuous">Continuous paper</string>
+    <string name="paper_summary_label">Label paper</string>
+
+    <!-- Tools -->
+    <string name="tools_title">Tools</string>
+    <string name="tool_test_title">Test page</string>
+    <string name="tool_test_body">Preview a test pattern, then print.</string>
+    <string name="tool_bluetooth_body">Pair or manage printers.</string>
+    <string name="tool_system_title">System printing</string>
+    <string name="tool_system_body">Enable S1 Bluetooth in Android print services. Paper size is chosen in the Android print dialog.</string>
+    <string name="footer_version">S1Print %1$s</string>
+
+    <!-- About -->
+    <string name="about_open">About S1Print</string>
+    <string name="about_title">About S1Print</string>
+    <string name="about_back">Back</string>
+    <string name="tool_about_body">Version, credits and license.</string>
+    <string name="about_version">Version %1$s (build %2$d)</string>
+    <string name="about_description">Print PDFs and images from Android, or from any app through Android system printing, to the Luck Jingle S1 Bluetooth thermal printer. No vendor driver needed.</string>
+    <string name="about_developed_by">Developed by</string>
+    <string name="about_developer_name">Marvin Quevedo</string>
+    <string name="about_developer_body">github.com/MarvinQuevedo</string>
+    <string name="about_source_title">Source Code</string>
+    <string name="about_source_body">github.com/MarvinQuevedo/s1print</string>
+    <string name="about_issue_title">Report an Issue</string>
+    <string name="about_issue_body">Open a new issue on GitHub</string>
+    <string name="about_credit_title">fichero-printer by 0xMH</string>
+    <string name="about_credit_body">github.com/0xMH/fichero-printer</string>
+    <string name="about_license_title">MIT License</string>
+    <string name="about_license_body">Read the full license text offline.</string>
+    <string name="about_license_unavailable">The license text could not be loaded.</string>
+    <string name="about_notice_open_source">Open source under the MIT License.</string>
+    <string name="about_notice_credit">Protocol notes build on fichero-printer by 0xMH.</string>
+    <string name="about_notice_affiliation">Not affiliated with Luck Jingle or Xiamen Lujiang Technology.</string>
+    <string name="about_link_failed">No app can open this link: %1$s</string>
+
+    <!-- Bottom bar -->
+    <string name="print">Print</string>
+    <string name="print_again">Print again</string>
+    <string name="printing_to">Printing to %1$s…</string>
+    <string name="helper_ready">Ready to print to %1$s</string>
+    <string name="helper_permission">Allow nearby devices to print.</string>
+    <string name="helper_bluetooth">Turn on Bluetooth to print.</string>
+    <string name="helper_no_printer">Choose a printer to print.</string>
+    <string name="helper_no_document">Choose a document to print.</string>
+    <string name="helper_preparing">Waiting for the preview…</string>
+    <string name="helper_document_failed">Fix the document to print.</string>
+    <string name="helper_printing">Printing in progress.</string>
+
+    <!-- Banners -->
+    <string name="banner_printing">Print job sent. Keep the printer close. You can leave this screen.</string>
+    <string name="banner_success">Printing completed.</string>
+    <string name="banner_canceled">Print canceled.</string>
+    <string name="banner_cancel_pending">Cancel requested, but the printer has not reported a result yet. Printing stays locked until it does.</string>
+    <string name="banner_queue_failed">Cannot start printing: %1$s</string>
+    <string name="banner_failure_fallback">Printing failed.</string>
+    <string name="shared_file_count">Shared files (%1$d)</string>
+    <string name="kind_documents">Documents</string>
+</resources>

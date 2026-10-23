@@ -1,0 +1,110 @@
+<style>
+#s1-design-stage { padding: 24px 8px; }
+#s1-design { --s1-bg:#F4F5F7; --s1-surface:#FFFFFF; --s1-ink:#14181D; --s1-secondary:#4B5560; --s1-outline:#D9DDE3; --s1-blue:#0B63C5; --s1-soft:#E3EEFB; --s1-radius:16px; color-scheme:light; background:var(--s1-bg); color:var(--s1-ink); font-family:Roboto,Arial,sans-serif; font-size:15px; line-height:1.4; max-width:390px; margin:auto; border-radius:28px; border:1px solid var(--s1-outline); overflow:hidden; }
+#s1-design * { box-sizing:border-box; }
+#s1-design .s1-status { display:flex; justify-content:space-between; padding:16px 22px 8px; font-size:13px; font-weight:500; }
+#s1-design .s1-content { padding:16px; display:grid; gap:16px; }
+#s1-design h1 { font-size:28px; font-weight:500; margin:0 0 4px; line-height:1.2; color:var(--s1-ink); }
+#s1-design h2 { font-size:17px; font-weight:500; margin:0; color:var(--s1-ink); }
+#s1-design p { margin:4px 0 0; }
+#s1-design .s1-muted { color:var(--s1-secondary); }
+#s1-design .s1-caption { font-size:13px; color:var(--s1-secondary); }
+#s1-design .s1-card { background:var(--s1-surface); border:1px solid var(--s1-outline); border-radius:var(--s1-radius); padding:16px; min-width:0; }
+#s1-design .s1-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+#s1-design .s1-between { justify-content:space-between; }
+#s1-design .s1-grow { flex:1; min-width:130px; }
+#s1-design .s1-icon { width:44px; height:44px; background:var(--s1-soft); color:var(--s1-blue); border-radius:12px; display:grid; place-items:center; flex-shrink:0; }
+#s1-design button { font-family:inherit; font-size:15px; font-weight:500; min-height:48px; padding:10px 16px; border:1px solid var(--s1-outline); border-radius:12px; background:var(--s1-surface); color:var(--s1-blue); line-height:1.3; }
+#s1-design button:focus-visible, #s1-design input:focus-visible { outline:2px solid var(--s1-blue); outline-offset:3px; }
+#s1-design button.s1-primary { background:var(--s1-blue); color:#FFFFFF; border-color:var(--s1-blue); }
+#s1-design button.s1-plain { background:transparent; border:0; padding:10px 0; }
+#s1-design .s1-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+#s1-design .s1-actions button { flex:1; }
+#s1-design .s1-document-name { overflow-wrap:anywhere; font-weight:500; margin:0; }
+#s1-design .s1-paper { background:#FFFFFF; color:#14181D; border:1px solid var(--s1-outline); margin:16px auto 12px; padding:20px 16px; max-width:240px; box-shadow:0 2px 4px #14181D14; font-family:monospace; font-size:12px; text-align:center; }
+#s1-design .s1-paper b { font-size:16px; font-weight:500; }
+#s1-design .s1-rule { border-top:1px dashed #14181D; margin:12px 0; }
+#s1-design .s1-print-row { display:flex; justify-content:space-between; margin:6px 0; gap:8px; }
+#s1-design .s1-tone-strip { height:22px; margin:12px 0; background:linear-gradient(90deg,#FFFFFF 0 12.5%,#DDDDDD 12.5% 25%,#BBBBBB 25% 37.5%,#999999 37.5% 50%,#777777 50% 62.5%,#555555 62.5% 75%,#333333 75% 87.5%,#14181D 87.5%); }
+#s1-design .s1-option-toggle { display:flex; width:100%; align-items:center; justify-content:space-between; gap:12px; text-align:left; padding:0; border:0; color:var(--s1-ink); }
+#s1-design .s1-option-toggle strong { font-weight:500; font-size:17px; }
+#s1-design .s1-option-content { border-top:1px solid var(--s1-outline); margin-top:14px; padding-top:14px; }
+#s1-design .s1-density { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
+#s1-design .s1-density button { flex:1; min-width:72px; padding:10px 8px; }
+#s1-design .s1-density button[aria-pressed=true] { background:var(--s1-soft); border-color:var(--s1-blue); }
+#s1-design .s1-setting { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:16px; min-height:48px; }
+#s1-design input[type=checkbox] { width:22px; height:22px; accent-color:var(--s1-blue); flex-shrink:0; }
+#s1-design .s1-tool { width:100%; display:flex; align-items:center; gap:12px; text-align:left; border:0; border-radius:0; color:var(--s1-ink); padding:12px 0; font-weight:400; }
+#s1-design .s1-tool + .s1-tool { border-top:1px solid var(--s1-outline); }
+#s1-design .s1-tool .s1-icon { width:32px; height:36px; background:transparent; color:var(--s1-secondary); }
+#s1-design .s1-tool-title { font-weight:500; }
+#s1-design .s1-bottom { background:var(--s1-surface); border-top:1px solid var(--s1-outline); padding:12px 16px 16px; }
+#s1-design .s1-bottom button { width:100%; min-height:56px; margin-top:8px; }
+#s1-design .s1-bottom .s1-caption { text-align:center; }
+#s1-design .s1-home { background:var(--s1-ink); width:110px; height:4px; border-radius:4px; margin:18px auto 0; }
+#s1-design .s1-feedback { padding:12px; border-radius:12px; margin-top:12px; background:var(--s1-soft); color:var(--s1-ink); font-size:13px; }
+#s1-design [hidden] { display:none; }
+@media(max-width:360px) { #s1-design-stage {padding:8px 0;} #s1-design .s1-content {padding:12px; gap:12px;} #s1-design .s1-card {padding:14px;} }
+</style>
+<div id="s1-design-stage" class="viz-dotted-background">
+ <div id="s1-design" aria-label="S1Print Android design by Sonnet">
+  <div class="s1-status" aria-hidden="true"><span>12:00</span><span>▮▮▮ &nbsp; 100%</span></div>
+  <main class="s1-content">
+   <header><h1>S1Print</h1><p class="s1-muted">Print PDFs and images on your S1 thermal printer.</p></header>
+   <section class="s1-card" aria-label="Printer">
+    <div class="s1-row"><span class="s1-icon"><i data-lucide="printer" aria-hidden="true"></i></span><div class="s1-grow"><h2>PPS1_07E4</h2><p class="s1-caption">Paired printer · status not checked</p></div></div>
+    <div class="s1-actions"><button class="cursor-interaction" data-action="change">Change</button><button class="cursor-interaction" data-action="status">Check status</button></div>
+   </section>
+   <section class="s1-card" aria-label="Document">
+    <div class="s1-row"><span class="s1-icon"><i data-lucide="file-text" aria-hidden="true"></i></span><div class="s1-grow"><p class="s1-document-name" id="s1-doc-name">Test page</p><p class="s1-caption" id="s1-doc-meta">1 page · Ready to print</p></div><button class="s1-plain cursor-interaction" data-action="replace">Replace</button></div>
+   </section>
+   <section class="s1-card" aria-label="Preview">
+    <h2>Preview</h2>
+    <div class="s1-paper" role="img" aria-label="Illustrative monochrome test page, not the final Rust raster">
+     <b id="s1-paper-title">S1Print test page</b><div class="s1-rule"></div>
+     <div>384 dots · 203 dpi</div><div class="s1-tone-strip"></div>
+     <div class="s1-print-row"><span>Fine lines</span><span>────────</span></div>
+     <div class="s1-print-row"><span>Text sample</span><span>Aa 0123</span></div>
+     <div class="s1-rule"></div><div>Ready when you are.</div>
+    </div>
+    <p class="s1-caption">Monochrome preview of the data sent to the printer · 384 dots wide</p>
+   </section>
+   <section class="s1-card" aria-label="Print options">
+    <button class="s1-option-toggle cursor-interaction" id="s1-options-toggle" aria-expanded="false" aria-controls="s1-options"><span><strong>Print options</strong><br><span class="s1-caption" id="s1-options-summary">Medium density · Fit to width · Continuous paper</span></span><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+    <div class="s1-option-content" id="s1-options" hidden>
+     <span>Density</span><div class="s1-density" role="group" aria-label="Print density"><button class="cursor-interaction" data-density="Light" aria-pressed="false">Light</button><button class="cursor-interaction" data-density="Medium" aria-pressed="true">Medium</button><button class="cursor-interaction" data-density="Dark" aria-pressed="false">Dark</button></div>
+     <label class="s1-setting"><span>Fit to printhead width<br><span class="s1-caption">Scale content to fill the printhead.</span></span><input id="s1-fit" type="checkbox" checked></label>
+     <label class="s1-setting"><span>Label paper<br><span class="s1-caption">Use gap feed for label rolls.</span></span><input id="s1-label" type="checkbox"></label>
+    </div>
+   </section>
+   <section class="s1-card" aria-label="Tools">
+    <button class="s1-tool cursor-interaction" data-action="test"><span class="s1-icon"><i data-lucide="scan-line" aria-hidden="true"></i></span><span class="s1-grow"><span class="s1-tool-title">Print test page</span><br><span class="s1-caption">Preview a test pattern, then print.</span></span><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+    <button class="s1-tool cursor-interaction" data-action="bluetooth"><span class="s1-icon"><i data-lucide="bluetooth" aria-hidden="true"></i></span><span class="s1-grow"><span class="s1-tool-title">Bluetooth settings</span><br><span class="s1-caption">Pair or manage printers.</span></span><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+    <button class="s1-tool cursor-interaction" data-action="system"><span class="s1-icon"><i data-lucide="settings-2" aria-hidden="true"></i></span><span class="s1-grow"><span class="s1-tool-title">System printing</span><br><span class="s1-caption">Print from other Android apps.</span></span><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+   </section>
+  </main>
+  <div class="s1-bottom"><div class="s1-caption">Ready to print to PPS1_07E4</div><button class="s1-primary cursor-interaction" data-action="print"><i data-lucide="printer" aria-hidden="true"></i> &nbsp; Print</button><div class="s1-feedback" id="s1-feedback" role="status" aria-live="polite" hidden></div><div class="s1-home" aria-hidden="true"></div></div>
+ </div>
+</div>
+<script>
+(function(){
+ const root=document.getElementById('s1-design');
+ const toggle=document.getElementById('s1-options-toggle');
+ const options=document.getElementById('s1-options');
+ let density='Medium';
+ function feedback(message){const node=document.getElementById('s1-feedback');node.textContent=message;node.hidden=false;}
+ function summary(){document.getElementById('s1-options-summary').textContent=density+' density · '+(document.getElementById('s1-fit').checked?'Fit to width':'Original width')+' · '+(document.getElementById('s1-label').checked?'Label paper':'Continuous paper');}
+ toggle.addEventListener('click',()=>{options.hidden=!options.hidden;toggle.setAttribute('aria-expanded',String(!options.hidden));});
+ root.querySelectorAll('[data-density]').forEach(button=>button.addEventListener('click',()=>{density=button.dataset.density;root.querySelectorAll('[data-density]').forEach(peer=>peer.setAttribute('aria-pressed',String(peer===button)));summary();}));
+ root.querySelectorAll('input').forEach(input=>input.addEventListener('change',summary));
+ root.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{
+  const action=button.dataset.action;
+  if(action==='test'||action==='replace'){
+   const sample=action==='replace';document.getElementById('s1-doc-name').textContent=sample?'Sample receipt.pdf':'Test page';document.getElementById('s1-doc-meta').textContent=sample?'PDF · 1 page':'1 page · Ready to print';document.getElementById('s1-paper-title').textContent=sample?'SAMPLE RECEIPT':'S1Print test page';
+  } else {
+   const messages={print:'Design preview only. No print job has been sent.',status:'The Android app will query the real printer here.',change:'The Android app will show your paired printers here.',bluetooth:'The Android app will open Bluetooth settings here.',system:'The Android app will open system print settings here.'};feedback(messages[action]);
+  }
+ }));
+ if(globalThis.Tweak){const design={radius:16,accent:'#0B63C5'};const tweak=new Tweak({container:root,onChange:()=>{root.style.setProperty('--s1-radius',design.radius+'px');root.style.setProperty('--s1-blue',design.accent);}});tweak.addSlider(design,'radius',{label:'Card corners',min:4,max:24,unit:'px'});tweak.addColorPicker(design,'accent',{label:'Accent',reference:'--s1-blue'});}
+})();
+</script>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../S1Print.Engine/S1Print.Engine.csproj" /></ItemGroup>
+  <ItemGroup>
+    <None Include="../../../rust/target/release/libs1_native.dylib" Link="libs1_native.dylib" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../../rust/target/release/libs1_native.dylib')" />
+    <None Include="../../../rust/target/release/libs1_native.so" Link="libs1_native.so" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../../rust/target/release/libs1_native.so')" />
+    <None Include="../../../rust/target/release/s1_native.dll" Link="s1_native.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../../rust/target/release/s1_native.dll')" />
+  </ItemGroup>
+</Project>

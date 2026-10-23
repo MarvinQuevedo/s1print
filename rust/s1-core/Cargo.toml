@@ -1,0 +1,9 @@
+[package]
+name = "s1-core"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Platform-independent Luck Jingle S1 raster and command pipeline"
+
+[dev-dependencies]
+serde_json = "1"

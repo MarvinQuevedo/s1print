@@ -2,6 +2,17 @@ import SwiftUI
 import UniformTypeIdentifiers
 import CoreBluetooth
 
+/// Simulator-only App Store screenshot mode (`-screenshotScene main|preview|options|about`): shows the
+/// connected-printer state the simulator cannot reach. Never compiled into device builds.
+enum ScreenshotDemo {
+    #if targetEnvironment(simulator)
+    static let scene: String? = UserDefaults.standard.string(forKey: "screenshotScene")
+    #else
+    static let scene: String? = nil
+    #endif
+    static var active: Bool { scene != nil }
+}
+
 @main struct S1PrintApp: App {
     var body: some Scene { WindowGroup { MainScreen() } }
 }
@@ -12,6 +23,8 @@ struct MainScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var importing = false
     @State private var printTask: Task<Void, Never>?
+    @State private var optionsExpanded = ScreenshotDemo.scene == "options"
+    @State private var showAbout = ScreenshotDemo.scene == "about"
     init() {
         let settings = PrintSettings()
         _settings = StateObject(wrappedValue: settings)
@@ -19,6 +32,7 @@ struct MainScreen: View {
     }
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 Section {
                     HStack(spacing: 12) {
@@ -29,6 +43,11 @@ struct MainScreen: View {
                     if model.working { ProgressView("Preparing documents") }
                 }
                 Section("Printer") {
+                    if ScreenshotDemo.active {
+                        Text("Connected · battery 90% · paper loaded").font(.subheadline)
+                        HStack { Text("PPS1_8D2A"); Spacer(); Image(systemName: "checkmark").foregroundStyle(.tint) }
+                        Text("Default printer: PPS1_8D2A").font(.caption)
+                    } else {
                     Text(printer.message).font(.subheadline)
                     Button(printer.scanning ? "Stop scanning" : "Find BLE printers") {
                         if printer.scanning { printer.stopScan() } else { printer.scan() }
@@ -42,6 +61,7 @@ struct MainScreen: View {
                         Text("Default printer: \(saved.name)").font(.caption)
                         if printer.selectedDevice == nil { Text("Waiting for the saved printer to appear nearby.").font(.caption).foregroundStyle(.secondary) }
                         Button("Forget printer", role: .destructive) { printer.forgetSelection() }.disabled(printer.busy)
+                    }
                     }
                 }
                 Section("Printing from other apps") {
@@ -64,21 +84,24 @@ struct MainScreen: View {
                     }
                 }
                 Section {
-                    DisclosureGroup("Print options") {
+                    DisclosureGroup("Print options", isExpanded: $optionsExpanded) {
                         Picker("Density", selection: $model.options.density) { Text("Light").tag(0); Text("Medium").tag(1); Text("Dark").tag(2) }
                         Toggle("Fit to printhead width", isOn: $model.options.fitContentWidth)
                         Toggle("Label paper", isOn: $model.options.labelPaper)
-                    }.disabled(printer.busy)
+                    }.disabled(printer.busy).id("options")
                     #if DEBUG
+                    if !ScreenshotDemo.active {
                     DisclosureGroup("Bluetooth sending (diagnostics)") {
                         Picker("Strategy", selection: $settings.sendStrategy) {
                             ForEach(SendStrategy.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.inline).labelsHidden()
                     }.disabled(printer.busy)
+                    }
                     #endif
                 }
                 if let job = model.job {
                     Section("Monochrome preview") {
+                        EmptyView().id("preview")
                         Text("\(job.sourcePages) page(s) · \(job.preview.width) × \(job.preview.height) dots").font(.caption)
                         VStack(spacing: 0) {
                             ForEach(Array(model.tiles.enumerated()), id: \.offset) { _, tile in
@@ -88,11 +111,17 @@ struct MainScreen: View {
                     }
                 }
             }
+            .onChange(of: model.tiles.count) { _, count in
+                if ScreenshotDemo.scene == "preview", count > 0 { proxy.scrollTo("preview", anchor: .top) }
+                if ScreenshotDemo.scene == "options", count > 0 { proxy.scrollTo("options", anchor: .center) }
+            }
+            }
             .navigationTitle("S1Print").navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showAbout) { AboutScreen() }
             .toolbar { NavigationLink { AboutScreen() } label: { Image(systemName: "info.circle").accessibilityLabel("About S1Print") } }
             .safeAreaInset(edge: .bottom) {
                 VStack {
-                    Text(printer.message).font(.caption).multilineTextAlignment(.center)
+                    Text(ScreenshotDemo.active ? "Ready to print on PPS1_8D2A." : printer.message).font(.caption).multilineTextAlignment(.center)
                         .accessibilityIdentifier("printTransportStatus")
                     if printer.busy {
                         ProgressView(); Button("Cancel printing", role: .destructive) { printTask?.cancel(); printer.cancel() }
@@ -100,11 +129,11 @@ struct MainScreen: View {
                         Button("Done", systemImage: "checkmark") { printer.completed = false }
                             .buttonStyle(.borderedProminent).controlSize(.large)
                         Button("Print again", systemImage: "printer") { startPrint() }
-                            .disabled(model.job == nil || printer.selectedDevice == nil || model.working)
+                            .disabled(!ScreenshotDemo.active && (model.job == nil || printer.selectedDevice == nil || model.working))
                     } else {
                         Button("Print", systemImage: "printer") { startPrint() }.buttonStyle(.borderedProminent).controlSize(.large)
-                            .disabled(model.job == nil || printer.selectedDevice == nil || model.working)
-                        Text(printer.selectedDevice == nil ? "Waiting for your printer. Select it once to save it." : "Review the preview, then print.").font(.caption).foregroundStyle(.secondary)
+                            .disabled(!ScreenshotDemo.active && (model.job == nil || printer.selectedDevice == nil || model.working))
+                        Text(printer.selectedDevice == nil && !ScreenshotDemo.active ? "Waiting for your printer. Select it once to save it." : "Review the preview, then print.").font(.caption).foregroundStyle(.secondary)
                     }
                 }.frame(maxWidth: .infinity).padding().background(.regularMaterial)
             }
@@ -117,7 +146,10 @@ struct MainScreen: View {
                 if phase == .active { model.refresh(); settings.reload(); model.restoreSavedOptions(); printer.startDiscovery() }
                 else if phase == .background { printer.disconnectIfIdle() }
             }
-            .task { model.refresh(); printer.startDiscovery() }
+            .task {
+                model.refresh(); printer.startDiscovery()
+                if ScreenshotDemo.active, let first = model.batches.first { model.prepare(first) }
+            }
         }
     }
 }

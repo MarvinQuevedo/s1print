@@ -69,6 +69,12 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set(true, forKey: "queueOffered")
             if !queueExists() { setQueue(installed: true, delay: 2) }
         }
+        // The app lives in the menu bar only; on the very first launch show
+        // Settings so opening it visibly does something.
+        if !UserDefaults.standard.bool(forKey: "settingsShownOnce") {
+            UserDefaults.standard.set(true, forKey: "settingsShownOnce")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.openSettings() }
+        }
     }
 
     /// Opening the app again (Finder, Spotlight, Launchpad) while it already runs

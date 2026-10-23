@@ -29,7 +29,7 @@ Requires macOS 13 Ventura or later. Releases from 0.3.4 on are signed with a Dev
 ## What you get
 
 - A driverless printer for every app: Chrome, Safari, Preview, Word, POS and invoicing web apps.
-- Paper sizes for the S1: a **58 mm roll** with the blank space trimmed automatically, **80 mm** receipts scaled down, **labels** (58 × 30 / 40 / 50 / 80 mm), and a custom size.
+- Paper sizes for the S1: a **58 mm roll** with the blank space trimmed automatically, **80 mm** receipts scaled down, and a custom size for labels (58 × 30 mm and up).
 - Sharp small text and QR codes: the printer asks apps for 406 dpi, fits the content to the 48 mm head and keeps thin strokes black.
 - A menu-bar app that shows battery and paper status, prints a test page, adds or removes the printer, and has a Settings window (darkness, printer name, open at login, network sharing).
 - Private by default: the print server listens on your Mac only, unless you turn on sharing.

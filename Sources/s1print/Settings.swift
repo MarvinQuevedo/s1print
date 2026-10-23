@@ -69,10 +69,10 @@ struct MediaSize {
         MediaSize(name: "oe_s1-roll-58mm_58x600mm", width: 5800, height: 60000, sideMargin: 0),
         // 80 mm receipts are scaled down to the 48 mm head.
         MediaSize(name: "oe_s1-roll-80mm_80x600mm", width: 8000, height: 60000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x30mm_58x30mm", width: 5800, height: 3000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x40mm_58x40mm", width: 5800, height: 4000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x50mm_58x50mm", width: 5800, height: 5000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x80mm_58x80mm", width: 5800, height: 8000, sideMargin: 0),
+        // No fixed label sizes: macOS's AirPrint driver (ipp2ppd) never matches
+        // media-default and falls back to the alphabetically first size, so with
+        // "58x30mm" listed Chrome and Safari opened every receipt on a 30 mm
+        // label. Labels use the custom size range below instead.
     ]
 
     var collection: String {

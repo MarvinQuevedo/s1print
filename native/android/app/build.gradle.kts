@@ -1,19 +1,45 @@
+import java.util.Properties
+
 plugins { id("com.android.application") }
+
+// Upload key for Google Play, kept outside the repository. Point
+// S1PRINT_UPLOAD_PROPERTIES (or ~/.android/s1print-upload.properties) at a file
+// with storeFile, storePassword, keyAlias and keyPassword.
+val uploadProps = Properties().apply {
+    val path = System.getenv("S1PRINT_UPLOAD_PROPERTIES")
+        ?: "${System.getProperty("user.home")}/.android/s1print-upload.properties"
+    val f = file(path)
+    if (f.exists()) f.inputStream().use { load(it) }
+}
 android {
     namespace = "inc.imx.s1print"
     compileSdk = 36
     defaultConfig {
-        applicationId = "inc.imx.s1print"
+        // Same id as the iOS and Mac apps. The code keeps its original namespace.
+        applicationId = "com.factadte.s1printer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.4.0-native-preview"
+        versionCode = 10
+        versionName = "0.5.0"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     ndkVersion = "26.3.11579264"
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    buildTypes { getByName("release") { isMinifyEnabled = false } }
+    signingConfigs {
+        if (uploadProps.containsKey("storeFile")) create("upload") {
+            storeFile = file(uploadProps.getProperty("storeFile"))
+            storePassword = uploadProps.getProperty("storePassword")
+            keyAlias = uploadProps.getProperty("keyAlias")
+            keyPassword = uploadProps.getProperty("keyPassword")
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
+        }
+    }
 }
 val buildRust by tasks.registering(Exec::class) {
     workingDir(rootProject.projectDir.resolve("../.."))

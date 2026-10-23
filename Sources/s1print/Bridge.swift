@@ -14,6 +14,7 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var server: Process?
     private var stopping = false
     private var termSource: DispatchSourceSignal?
+    private let advert = LocalAdvert()
     private let printerItem = NSMenuItem(title: "Printer: checking…", action: nil, keyEquivalent: "")
     private let stateItem = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
     private let queueItem = NSMenuItem(title: "Installed in macOS Printers", action: #selector(toggleQueue), keyEquivalent: "")
@@ -163,15 +164,9 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var args = ["-p", String(settings.ippPort), "-c", Bundle.main.executablePath ?? CommandLine.arguments[0],
                     "-d", spool.path, "-a", conf.path, "--no-web-forms"]
         // Without sharing, bind to loopback only so other devices cannot print here.
-        // A loopback-bound ippeveprinter registers its Bonjour advert as local-only,
-        // so print dialogs on this Mac list it as a nearby printer with no CUPS queue
-        // (the path for a sandboxed build that cannot run lpadmin). Once our queue
-        // exists, stop advertising: the advert would show up in CUPS as a second
-        // destination named like the queue.
+        // The Bonjour advert is ours (LocalAdvert), never ippeveprinter's.
         if !settings.shareOnNetwork { args += ["-n", "localhost"] }
-        // «Add Printer» only offers automatic (AirPrint) setup for adverts in the
-        // _universal subtype; ippeveprinter registers no subtype by default.
-        args += ["-r", !settings.shareOnNetwork && ownQueueExists() ? "off" : "_print,_universal"]
+        args += ["-r", "off"]
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
         // When shared, this Mac would list its own advert next to the local queue
         // under the same name; give the advert the Mac's name to tell them apart.
@@ -187,6 +182,23 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         do { try p.run(); server = p } catch { stateItem.title = "Could not start ippeveprinter: \(error)" }
+        updateAdvert()
+    }
+
+    /// Without our own loopback queue, print dialogs on this Mac list the advert
+    /// as a nearby printer (the path for a build that cannot run lpadmin). With
+    /// it, the advert would show up in CUPS as a second destination named like
+    /// the queue, so it stays off unless the printer is shared.
+    private func updateAdvert() {
+        let s = Settings.load()
+        if s.shareOnNetwork {
+            advert.start(name: "\(s.serviceName) @ \(Host.current().localizedName ?? "Mac")",
+                         port: s.ippPort, localOnly: false, uuid: LocalAdvert.uuid)
+        } else if ownQueueExists() {
+            advert.stop()
+        } else {
+            advert.start(name: s.serviceName, port: s.ippPort, localOnly: true, uuid: LocalAdvert.uuid)
+        }
     }
 
     private var printerURI: String { "ipp://localhost:\(Settings.load().ippPort)/ipp/print" }

@@ -69,11 +69,13 @@ struct MainScreen: View {
                         Toggle("Fit to printhead width", isOn: $model.options.fitContentWidth)
                         Toggle("Label paper", isOn: $model.options.labelPaper)
                     }.disabled(printer.busy)
+                    #if DEBUG
                     DisclosureGroup("Bluetooth sending (diagnostics)") {
                         Picker("Strategy", selection: $settings.sendStrategy) {
                             ForEach(SendStrategy.allCases) { Text($0.title).tag($0) }
                         }.pickerStyle(.inline).labelsHidden()
                     }.disabled(printer.busy)
+                    #endif
                 }
                 if let job = model.job {
                     Section("Monochrome preview") {
@@ -145,6 +147,11 @@ struct AboutScreen: View {
                 Link("Marvin Quevedo", destination: URL(string: "https://github.com/MarvinQuevedo")!)
                 Link("Source Code", destination: URL(string: "https://github.com/MarvinQuevedo/s1print")!)
                 Link("Report an Issue", destination: URL(string: "https://github.com/MarvinQuevedo/s1print/issues/new")!)
+                Link("Privacy Policy", destination: URL(string: "https://marvinquevedo.github.io/s1print/privacy.html")!)
+            }
+            Section("Made by the Facta DTE team") {
+                Text("Electronic invoicing for El Salvador: facturas, créditos fiscales and tickets, signed and sent to the Ministerio de Hacienda, ready to print on this printer.")
+                Link("factadte.com", destination: URL(string: "https://www.factadte.com")!)
             }
             Section("Credits and license") {
                 Link("Protocol notes: fichero-printer by 0xMH", destination: URL(string: "https://github.com/0xMH/fichero-printer")!)

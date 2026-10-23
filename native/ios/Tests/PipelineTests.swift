@@ -296,4 +296,14 @@ final class PrintExchangeTests: XCTestCase {
         do { try await PrintExchange.run(job(), channel: channel) { _ in }; XCTFail("Printed without paper") }
         catch { XCTAssertEqual(channel.writes, [Data([0x10, 0xff, 0x40])]) }
     }
+
+    func testPrinterErrorRepliesAbortButOtherRepliesDoNot() {
+        XCTAssertNotNil(PrintExchange.printerError(Data([0xFF, 0x01])))
+        XCTAssertNotNil(PrintExchange.printerError(Data([0xFF, 0x02])))
+        XCTAssertNotNil(PrintExchange.printerError(Data([0xFF, 0x13])))
+        XCTAssertNotNil(PrintExchange.printerError(Data([0xFF, 0x04])))
+        XCTAssertNil(PrintExchange.printerError(Data("OK".utf8)))
+        XCTAssertNil(PrintExchange.printerError(Data([0xAA])))
+        XCTAssertNil(PrintExchange.printerError(Data([0xFF, 0x01, 0x00])))
+    }
 }

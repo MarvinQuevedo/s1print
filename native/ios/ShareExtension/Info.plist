@@ -20,6 +20,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>S1Print connects to your thermal printer to print documents you share.</string>
 	<key>NSExtension</key>

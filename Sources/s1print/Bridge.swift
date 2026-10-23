@@ -136,9 +136,15 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var args = ["-p", String(settings.ippPort), "-c", Bundle.main.executablePath ?? CommandLine.arguments[0],
                     "-d", spool.path, "-a", conf.path, "--no-web-forms"]
         // Without sharing, bind to loopback only so other devices cannot print here.
-        // and do not advertise it over Bonjour either: an advertised "S1 Bluetooth"
-        // also shows up in CUPS as a network destination named like our queue.
-        if !settings.shareOnNetwork { args += ["-n", "localhost", "-r", "off"] }
+        // A loopback-bound ippeveprinter registers its Bonjour advert as local-only,
+        // so print dialogs on this Mac list it as a nearby printer with no CUPS queue
+        // (the path for a sandboxed build that cannot run lpadmin). Once our queue
+        // exists, stop advertising: the advert would show up in CUPS as a second
+        // destination named like the queue.
+        if !settings.shareOnNetwork {
+            args += ["-n", "localhost"]
+            if ownQueueExists() { args += ["-r", "off"] }
+        }
         if let icon = Bundle.main.url(forResource: "printer-icon", withExtension: "png") { args += ["-i", icon.path] }
         // When shared, this Mac would list its own advert next to the local queue
         // under the same name; give the advert the Mac's name to tell them apart.
@@ -163,6 +169,24 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// "remove" for a queue that no longer existed. A local queue has a PPD.
     private func queueExists() -> Bool {
         FileManager.default.fileExists(atPath: "/etc/cups/ppd/\(Bridge.queueName).ppd")
+    }
+
+    /// True only for the queue this app installs, which talks to the server by its
+    /// loopback URI. A queue the user added from Printers & Scanners (or a print
+    /// dialog's «Add Printer») points at the Bonjour advert instead, so the advert
+    /// must stay up for it to keep printing.
+    private func ownQueueExists() -> Bool {
+        guard queueExists() else { return false }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/lpstat")
+        p.arguments = ["-v", Bridge.queueName]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        p.waitUntilExit()
+        let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        return text.contains(printerURI)
     }
 
     @discardableResult
@@ -214,6 +238,8 @@ final class Bridge: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             let nowInstalled = queueExists()
             DispatchQueue.main.async {
+                // Restart the server so it advertises (no queue) or stops (queue).
+                if ok { self.server?.terminate() }
                 self.queueBusy = false
                 self.queueItem.title = "Installed in macOS Printers"
                 self.queueItem.state = nowInstalled ? .on : .off

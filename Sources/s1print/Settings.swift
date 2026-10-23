@@ -69,10 +69,10 @@ struct MediaSize {
         MediaSize(name: "oe_s1-roll-58mm_58x600mm", width: 5800, height: 60000, sideMargin: 0),
         // 80 mm receipts are scaled down to the 48 mm head.
         MediaSize(name: "oe_s1-roll-80mm_80x600mm", width: 8000, height: 60000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x30mm_58x30mm", width: 5800, height: 3000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x40mm_58x40mm", width: 5800, height: 4000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x50mm_58x50mm", width: 5800, height: 5000, sideMargin: 0),
-        MediaSize(name: "oe_s1-58x80mm_58x80mm", width: 5800, height: 8000, sideMargin: 0),
+        // No fixed label sizes: macOS's AirPrint driver (ipp2ppd) never matches
+        // media-default and falls back to the alphabetically first size, so with
+        // "58x30mm" listed Chrome and Safari opened every receipt on a 30 mm
+        // label. Labels use the custom size range below instead.
     ]
 
     var collection: String {
@@ -110,6 +110,11 @@ func ippeveConfig() -> String {
     lines.append("ATTR resolution pwg-raster-document-resolution-supported 406dpi")
     lines.append("ATTR resolution printer-resolution-supported 406dpi")
     lines.append("ATTR resolution printer-resolution-default 406dpi")
+    // macOS's AirPrint driver (ipp2ppd, used for a printer added from Bonjour)
+    // only writes a resolution into its PPD when print-quality-supported is
+    // present; without it CUPS rasterizes at its 100 dpi default.
+    lines.append("ATTR enum print-quality-supported 4,5")
+    lines.append("ATTR enum print-quality-default 4")
     lines.append("ATTR keyword pwg-raster-document-type-supported \"black_1\",\"sgray_8\"")
     lines.append("ATTR keyword urf-supported \"V1.4\",\"W8\",\"DM1\",\"RS406\",\"CP1\",\"IS1\",\"MT1-3-10-12\"")
     lines.append("ATTR keyword print-color-mode-supported \"monochrome\"")

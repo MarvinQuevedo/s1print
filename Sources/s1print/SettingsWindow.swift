@@ -146,7 +146,9 @@ private struct SettingsView: View {
                         get: { model.queueInstalled },
                         set: { v in model.setQueueInstalled(v) }
                     )) {
-                        row("Installed in macOS Printers", "Apps list “\(model.settings.serviceName)” in the print dialog")
+                        row("Installed in macOS Printers", model.queueInstalled
+                            ? "Apps list “\(model.settings.serviceName)” in the print dialog"
+                            : "Off: apps still find “\(model.settings.serviceName)” under Nearby Printers")
                     }
                     .disabled(model.queueBusy)
                     Toggle(isOn: Binding(

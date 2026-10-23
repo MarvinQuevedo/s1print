@@ -49,6 +49,17 @@ PDF built for the 58 mm roll instead of an HTML page:
 Once the ticket was a proper PDF, macOS and Android printed it identically
 from any browser.
 
+## The macOS print system (Mac App Store build, 23-Oct-2026)
+
+| Lesson | Evidence |
+|---|---|
+| Under the App Sandbox (`device.bluetooth`, `network.server`, `network.client`, `print`) RFCOMM to the S1, `ippeveprinter`, `lpadmin` and Bonjour all work | Sandboxed probe and a sandboxed `s1print status`/`test` on the S1 |
+| `ippeveprinter` advertises `_ipps` with `TLS=1.2` but cannot set up TLS on current macOS, sandboxed or not. Safari then hangs on «Preparing…» and «Add Printer» fails on the `_ipps` connection | `ipptool ipps://localhost:…` fails with -9806 on both builds. The app now publishes its own plain `_ipp` advert (`LocalAdvert.swift`) |
+| «Add Printer» offers automatic setup only for adverts in the `_universal` subtype | `dns-sd -B _ipp._tcp,_universal` |
+| macOS builds the PPD of a Bonjour printer with `ipp2ppd`, which writes a resolution only when `print-quality-supported` exists; without it CUPS rasterizes at 100 dpi | URF header of the same ticket: 100 dpi before, 406 dpi after |
+| `ipp2ppd` never matches our `media-default` and picks the alphabetically first size, so a `58x30mm` label became the default and Chrome cut receipts | `*DefaultPageSize` in the generated PPD; the fixed label sizes were dropped |
+| A plain `kill` or a logout skips `applicationWillTerminate`; the orphaned `ippeveprinter` kept the port and the next launch could not start its server | The app handles SIGTERM; inside the sandbox it cannot end a leftover server |
+
 ## Recovering vendor behaviour
 
 - The Android app (`com.dingdang.newprint`) decompiles with jadx; the iOS
